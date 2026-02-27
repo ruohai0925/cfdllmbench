@@ -61,11 +61,11 @@ This benchmark is open-source and released under license: BSD-3-Clause.
 If you use CFD-LLMBench in your research, please cite our paper:
 ```bibtex
 
-@article{somasekharan2025cfdllmbench,
+@article{somasekharan2026cfdllmbench,
     title={CFDLLMBench: A Benchmark Suite for Evaluating Large Language Models in Computational Fluid Dynamics},
     author={Somasekharan, Nithin and Yue, Ling and Cao, Yadi and Li, Weichao and Emami, Patrick and Bhargav, Pochinapeddi Sai and Acharya, Anurag and Xie, Xingyu and Pan, Shaowu},
     journal={Journal of Data-centric Machine Learning Research},
-    year={2025},
+    year={2026},
     url={https://openreview.net/forum?id=kTcH1MnkjY}
 }
 
