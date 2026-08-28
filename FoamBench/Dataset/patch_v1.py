@@ -81,6 +81,13 @@ def patch_advanced(d, log):
         assert old in v["usr_requirement"], k
         v["usr_requirement"] = v["usr_requirement"].replace(old, "using the k-omega SST RANS turbulence model")
         log.append(f"{k}: usr_requirement 'k-epsilon' -> 'k-omega SST' (matches GT RASModel kOmegaSST)")
+    # Cylinder_LES / Cylinder_SA: prose says final time 0.5, GT controlDict endTime is 2 (deltaT/writeInterval agree).
+    for k in ["Cylinder_LES", "Cylinder_SA"]:
+        v = d[k]
+        assert "endTime         2;" in v["system/controlDict"], k
+        assert v["usr_requirement"].count("Finaltime is 0.5.") == 1, k
+        v["usr_requirement"] = v["usr_requirement"].replace("Finaltime is 0.5.", "Finaltime is 2.")
+        log.append(f"{k}: usr_requirement 'Finaltime is 0.5' -> 'Finaltime is 2' to match GT controlDict endTime")
     return d
 
 
