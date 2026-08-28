@@ -26,10 +26,12 @@ def analyze_basic_structure(base_dir):
             run_path = os.path.join(case_dir, run_folders[0])
             success = 0
 
+            # os.walk already yields every directory including run_path itself, so scan
+            # `files` here: the previous version only looked inside `dirs`, which missed a
+            # solver log sitting directly in the run folder.
             for root, dirs, files in os.walk(run_path):
-                for dir_name in dirs:
-                    folder_path = os.path.join(root, dir_name)
-                    log_files = [f for f in os.listdir(folder_path) if f.startswith("log.") and f.endswith("Foam")]
+                for folder_path in [root]:
+                    log_files = [f for f in files if f.startswith("log.") and f.endswith("Foam")]
                     for log_file in log_files:
                         log_path = os.path.join(folder_path, log_file)
                         try:
@@ -70,9 +72,8 @@ def analyze_advanced_structure(base_dir):
         success = 0
 
         for root, dirs, files in os.walk(run_path):
-            for dir_name in dirs:
-                folder_path = os.path.join(root, dir_name)
-                log_files = [f for f in os.listdir(folder_path) if f.startswith("log.") and f.endswith("Foam")]
+            for folder_path in [root]:
+                log_files = [f for f in files if f.startswith("log.") and f.endswith("Foam")]
                 for log_file in log_files:
                     log_path = os.path.join(folder_path, log_file)
                     try:
@@ -97,7 +98,7 @@ base_dir = "Dataset"
 basic_results = analyze_basic_structure(base_dir)
 advanced_results = analyze_advanced_structure(base_dir)
 
-pd.DataFrame(basic_results, columns=["Dataset", "Directory", "Success"]).to_csv("basic_success_report.csv", index=False)
-pd.DataFrame(advanced_results, columns=["Dataset", "Directory", "Success"]).to_csv("advanced_success_report.csv", index=False)
+pd.DataFrame(basic_results, columns=["Dataset", "Directory", "Execution"]).to_csv("basic_success_report.csv", index=False)
+pd.DataFrame(advanced_results, columns=["Dataset", "Directory", "Execution"]).to_csv("advanced_success_report.csv", index=False)
 
 print("✅ Reports saved: 'basic_success_report.csv' and 'advanced_success_report.csv'")

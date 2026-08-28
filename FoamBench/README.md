@@ -99,8 +99,8 @@ Run the following scripts in order:
 python execution_report.py
 ```
 This generates:
-- `execution_status_basic.csv`
-- `execution_status_advanced.csv`
+- `basic_success_report.csv`
+- `advanced_success_report.csv`
 
 2. **Structural Similarity (Tree/ROUGE SCORE)** 
 ```bash

@@ -14,3 +14,7 @@ logs/
 results/
 runs/
 *.csv
+
+# Python
+__pycache__/
+*.pyc
