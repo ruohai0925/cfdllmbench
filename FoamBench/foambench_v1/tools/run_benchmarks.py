@@ -1,111 +1,160 @@
+"""Run Foam-Agent over the FoamBench cases.
+
+    python tools/run_benchmarks.py --mode all
+    python tools/run_benchmarks.py --only Basic/Cavity/1        # verify one case first
+
+Foam-Agent's interface is a plain text prompt file and an output directory, which is
+exactly what tools/unpack.py already lays down:
+
+    Dataset/Basic/Cavity/1/
+    ├── usr_requirement.txt   -> --prompt_path
+    ├── GT_Files/             (the reference answer, untouched)
+    └── foam_agent_run/       <- --output, written here
+
+The output directory is the case root itself (services/plan.py resolve_case_dir returns
+a supplied case_dir directly), so the submission lands flat, which is the layout the
+three scoring scripts expect.
+
+The RAG database is built once by Foam-Agent's own init_database.py, not per case.
+"""
+import argparse
 import os
 import subprocess
-import argparse
-import shutil
+import sys
 
-# === Paths & Constants ===
-# Everything resolves against foambench_v1/, so this runs from any cwd. The framework
-# under test still lives in the upstream tree (it has its own git repo).
+# Paths resolve against the foambench_v1/ package, not the caller's cwd.
 PKG = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REPO = os.path.dirname(PKG)
 BASIC_ROOT = os.path.join(PKG, "Dataset", "Basic")
 ADVANCED_ROOT = os.path.join(PKG, "Dataset", "Advanced")
 # The framework under test lives outside this package (it has its own git repo).
-# Default to the sibling upstream checkout; override with $METAOPENFOAM_ROOT.
-META_ROOT = os.environ.get("METAOPENFOAM_ROOT") or os.path.join(PKG, "upstream", "MetaOpenFOAM")
-SRC_DIR = os.path.join(META_ROOT, "src")
-PYTHON = "python"
-# OpenFOAM 10 is the evaluation environment; override with $WM_PROJECT_DIR if installed
-# elsewhere. Upstream shipped the literal placeholder "xxxxx" here.
+AGENT_ROOT = os.environ.get("FOAMAGENT_ROOT") or os.path.join(PKG, "upstream", "Foam-Agent")
+# OpenFOAM 10 is the evaluation environment.
 OPENFOAM_DIR = os.environ.get("WM_PROJECT_DIR") or "/opt/openfoam10"
+# Name of the submission directory, a sibling of GT_Files. The scoring scripts take
+# "the first sub-directory that is not GT_Files" as the submission, so there must be
+# exactly one of these per case.
+SUBMISSION = "foam_agent_run"
 
-# === Workflow Step Scripts ===
-SCRIPTS = [
-    ("config_path", "config_path.py"),
-    ("postprocess", "Tutorial_postprocess.py"),
-    ("db_add_summary", "Langchain_database_add_tutorial_summary.py"),
-    ("db_add_tutorial", "Langchain_database_add_tutorial.py"),
-    ("db_add_command", "Langchain_database_add_command.py"),
-    ("db_add_allrun", "Langchain_database_add_allrun.py"),
-    ("main", "metaOpenfoam_v2.py"),
-]
 
-def run_workflow(input_yaml):
-    """Set CONFIG_FILE_PATH and run full workflow on one YAML case."""
-    input_dir = os.path.dirname(input_yaml)
-    case_name = os.path.basename(input_dir)
-    os.environ["CONFIG_FILE_PATH"] = input_yaml
-    os.environ["INPUT_DIR"] = os.path.dirname(input_yaml)
-    os.environ["INPUT_DIR_METAFOAM"] = os.path.dirname(input_yaml)
-    os.environ["WM_PROJECT_DIR"] = OPENFOAM_DIR
+def agent_python():
+    """Interpreter that has Foam-Agent's dependencies."""
+    explicit = os.environ.get("FOAMAGENT_PYTHON")
+    if explicit:
+        return explicit
+    env_python = os.path.join(AGENT_ROOT, "env", "bin", "python")
+    return env_python if os.path.isfile(env_python) else sys.executable
 
-    run_source = os.path.join(META_ROOT, "run")
 
-    # === Step 1: Create a fresh run/ folder before the workflow ===
-    if os.path.exists(run_source):
-        shutil.rmtree(run_source)
-    os.makedirs(run_source, exist_ok=True)
+def run(cmd, cwd):
+    print("  $ " + " ".join(cmd), flush=True)
+    try:
+        subprocess.run(cmd, cwd=cwd, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"  failed: {e}", flush=True)
+        return False
 
-    for label, script in SCRIPTS:
-        script_path = os.path.join(SRC_DIR, script)
-        print(f"Running {label}: {script_path}")
 
-        try:
-            subprocess.run([PYTHON, "-u", script_path, input_yaml] if label == "config_path" else [PYTHON, "-u", script_path], check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Failed on {label} for {input_yaml}: {e}")
-            return
+def database_is_built():
+    db = os.path.join(AGENT_ROOT, "database")
+    if not os.path.isdir(db):
+        return False
+    return any(name.startswith("faiss") for name in os.listdir(db))
 
-            # === Step 3: Move contents of run/ into case directory ===
-    if os.path.exists(run_source):
-        print(f"Moving contents of 'run/' → {input_dir}")
-        for item in os.listdir(run_source):
-            src_item = os.path.join(run_source, item)
-            dst_item = os.path.join(input_dir, item)
 
-            # Clean existing files if needed
-            if os.path.exists(dst_item):
-                if os.path.isdir(dst_item):
-                    shutil.rmtree(dst_item)
-                else:
-                    os.remove(dst_item)
+def init_database(force=False):
+    if database_is_built() and not force:
+        print(f"RAG database already present in {os.path.join(AGENT_ROOT, 'database')}; "
+              f"skipping (use --rebuild-db to force)", flush=True)
+        return True
+    print("Building the RAG database (once, not per case)", flush=True)
+    cmd = [agent_python(), "-u", os.path.join(AGENT_ROOT, "init_database.py"),
+           "--openfoam_path", OPENFOAM_DIR]
+    if force:
+        cmd.append("--force")
+    return run(cmd, AGENT_ROOT)
 
-            shutil.move(src_item, dst_item)
 
-        shutil.rmtree(run_source)
-    else:
-        print(f"Source run folder not found: {run_source}")
+def collect_cases(mode):
+    """[(label, case_dir), ...] in the order they will be run."""
+    cases = []
+    if mode in ("basic", "all") and os.path.isdir(BASIC_ROOT):
+        for dataset in sorted(os.listdir(BASIC_ROOT)):
+            for case_id in range(1, 11):
+                d = os.path.join(BASIC_ROOT, dataset, str(case_id))
+                if os.path.isfile(os.path.join(d, "usr_requirement.txt")):
+                    cases.append((f"Basic/{dataset}/{case_id}", d))
+    if mode in ("advanced", "all") and os.path.isdir(ADVANCED_ROOT):
+        for dataset in sorted(os.listdir(ADVANCED_ROOT)):
+            d = os.path.join(ADVANCED_ROOT, dataset)
+            if os.path.isfile(os.path.join(d, "usr_requirement.txt")):
+                cases.append((f"Advanced/{dataset}", d))
+    return cases
 
-def run_basic_cases():
-    for dataset in os.listdir(BASIC_ROOT):
-        for case_id in range(1, 11):
-            case_yaml = os.path.join(BASIC_ROOT, dataset, str(case_id), f"{dataset}.yaml")
-            if os.path.isfile(case_yaml):
-                print(f"\nRunning BASIC case: {dataset}/{case_id}")
-                run_workflow(case_yaml)
 
-def run_advanced_cases():
-    for dataset in os.listdir(ADVANCED_ROOT):
-        case_yaml = os.path.join(ADVANCED_ROOT, dataset, f"{dataset}.yaml")
-        if os.path.isfile(case_yaml):
-            print(f"Running ADVANCED case: {dataset}")
-            run_workflow(case_yaml)
+def run_case(case_dir):
+    out = os.path.join(case_dir, SUBMISSION)
+    cmd = [agent_python(), "-u", os.path.join(AGENT_ROOT, "foambench_main.py"),
+           "--openfoam_path", OPENFOAM_DIR,
+           "--output", out,
+           "--prompt_path", os.path.join(case_dir, "usr_requirement.txt")]
+    return run(cmd, AGENT_ROOT)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--mode", choices=["basic", "advanced", "all"], default="all",
+                    help="which split to run")
+    ap.add_argument("--only", action="append",
+                    help="run just this case, by the label printed below "
+                         "(e.g. Basic/Cavity/1). Repeatable.")
+    ap.add_argument("--rebuild-db", action="store_true",
+                    help="rebuild the RAG database even if it is already present")
+    ap.add_argument("--skip-db", action="store_true",
+                    help="do not touch the RAG database at all")
+    ap.add_argument("--skip-done", action="store_true",
+                    help="skip cases that already have a submission directory")
+    args = ap.parse_args()
+
+    if not os.path.isfile(os.path.join(AGENT_ROOT, "foambench_main.py")):
+        raise SystemExit(
+            f"Foam-Agent not found at {AGENT_ROOT}\n"
+            f"Run tools/fetch_upstream.sh, or set $FOAMAGENT_ROOT to its directory.")
+    if not os.path.isdir(OPENFOAM_DIR):
+        raise SystemExit(f"OpenFOAM not found at {OPENFOAM_DIR}; set $WM_PROJECT_DIR")
+
+    cases = collect_cases(args.mode)
+    if args.only:
+        wanted = set(args.only)
+        cases = [c for c in cases if c[0] in wanted]
+        missing = wanted - {c[0] for c in cases}
+        if missing:
+            raise SystemExit(f"no such case(s): {', '.join(sorted(missing))}")
+    if args.skip_done:
+        cases = [c for c in cases if not os.path.isdir(os.path.join(c[1], SUBMISSION))]
+    if not cases:
+        raise SystemExit(f"no cases to run under {BASIC_ROOT} / {ADVANCED_ROOT} -- "
+                         f"run tools/unpack.py first")
+
+    print(f"Foam-Agent : {AGENT_ROOT}")
+    print(f"python     : {agent_python()}")
+    print(f"OpenFOAM   : {OPENFOAM_DIR}")
+    print(f"cases      : {len(cases)} ({args.mode})", flush=True)
+
+    if not args.skip_db and not init_database(force=args.rebuild_db):
+        raise SystemExit("RAG database build failed; aborting before any case runs")
+
+    failed = []
+    for i, (label, case_dir) in enumerate(cases, 1):
+        print(f"\n[{i}/{len(cases)}] {label}", flush=True)
+        if not run_case(case_dir):
+            failed.append(label)
+
+    print(f"\n{len(cases) - len(failed)}/{len(cases)} cases completed", flush=True)
+    if failed:
+        print("failed: " + ", ".join(failed), flush=True)
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Unified Benchmark Runner for CFD Workflow")
-    parser.add_argument('--mode', type=str, choices=['basic', 'advanced', 'all'], default='all',
-                        help='Which group of cases to run')
-    args = parser.parse_args()
-
-    if not os.path.isdir(SRC_DIR):
-        raise SystemExit(
-            f"MetaOpenFOAM not found at {META_ROOT}\n"
-            f"Clone it (git clone https://github.com/Terry-cyx/MetaOpenFOAM.git) and set "
-            f"$METAOPENFOAM_ROOT to its directory.")
-
-    print(f"Running CFD workflow for: {args.mode.upper()}")
-    if args.mode in ('basic', 'all'):
-        run_basic_cases()
-    if args.mode in ('advanced', 'all'):
-        run_advanced_cases()
-
+    main()

@@ -4,7 +4,7 @@ Dataset/Basic/
 Dataset/Advanced/
 
 # Fetched from outside the package. The unmodified Kaggle JSONs are tracked so
-# tools/patch_dataset.py can re-derive the v1 data offline; MetaOpenFOAM has its
+# tools/patch_dataset.py can re-derive the v1 data offline; Foam-Agent has its
 # own git repo and is cloned by tools/fetch_upstream.sh.
 upstream/*
 !upstream/FoamBench_basic.json
@@ -19,3 +19,6 @@ results/*.csv
 
 __pycache__/
 *.pyc
+
+# Anything provider-specific that ever needs to live here stays local.
+llm_gateway/
