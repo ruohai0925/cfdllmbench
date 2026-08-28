@@ -103,6 +103,11 @@ def process_all(base_dir, is_advanced=False):
         dirs = [1] if is_advanced else range(1, 11)
         for i in dirs:
             case_dir = dataset_dir if is_advanced else os.path.join(dataset_dir, str(i))
+            # A Basic family need not hold all ten cases: skip what is not there rather
+            # than crashing in get_inner_run_folder, which is what the other three
+            # scoring scripts do.
+            if not os.path.isdir(case_dir):
+                continue
             gt_dir = os.path.join(case_dir, "GT_Files")
             llm_dir = get_inner_run_folder(case_dir)
             if not gt_dir or not llm_dir or not os.path.exists(gt_dir) or not os.path.exists(llm_dir):
