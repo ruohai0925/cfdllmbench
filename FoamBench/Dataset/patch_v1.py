@@ -1,12 +1,12 @@
 """Generate FoamBench v1 datasets from the unmodified Kaggle originals.
 
-Fixes 12 cases where the usr_requirement and GT disagree (see docs/AUDIT_requirement_vs_GT.md).
+Fixes cases where the usr_requirement and GT disagree (see docs/AUDIT_requirement_vs_GT.md).
 Policy "A": edit the requirement text so it fully specifies what the GT does; GT solver
 settings are untouched, only dead template files that GT never reads are removed.
 
     python Dataset/patch_v1.py   # writes FoamBench_basic_v1.json / FoamBench_advanced_v1.json
 """
-import json, os, hashlib
+import json, os, hashlib, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -51,8 +51,8 @@ def patch_stale_variants(d, log):
         v = d[f"wedge/{i}"]
         pr = re.search(r"Pr\s+([\d.]+);", v["constant/physicalProperties"]).group(1)
         assert pr in ("0.71", "1.5"), (i, pr)
-        assert v["usr_requirement"].count("Pr is 1.") == 1, i
-        v["usr_requirement"] = v["usr_requirement"].replace("Pr is 1.", f"Pr is {pr}.")
+        assert v["usr_requirement"].count("Pr is 1.0") == 1, i
+        v["usr_requirement"] = v["usr_requirement"].replace("Pr is 1.0", f"Pr is {pr}")
         log.append(f"wedge/{i}: usr_requirement 'Pr is 1' -> 'Pr is {pr}' to match GT physicalProperties")
     return d
 
@@ -91,6 +91,80 @@ def patch_advanced(d, log):
     return d
 
 
+P_OUTLET_OLD = "zero gradient pressure at the outlet (right)"
+P_OUTLET_NEW = "fixed-value pressure of 0 at the outlet (right) with zero-gradient velocity there"
+P_OUTLET_OLD_ADV = "The right boundary is the outlet using zero gradient pressure condition."
+P_OUTLET_NEW_ADV = ("The right boundary is the outlet, with fixed-value pressure equal to the internal field "
+                    "and a pressureInletOutletVelocity condition for velocity.")
+SHALLOW_BUMP_SENTENCE = (" The square bump occupies the box (0.45, 0.45) to (0.55, 0.55) with bed elevation h0 = 0.001 m; "
+                         "inside the bump region initialise h = 0.009 m and hU = (0.0009, 0, 0) (all other cells keep the "
+                         "uniform values above), applied with setFields.")
+
+
+def patch_round2_basic(d, log):
+    # forwardStep/1: prose 3 m/s, GT 0/U 4 m/s (variants 2-10 are 1.1..2.7 and agree with GT).
+    v = d["forwardStep/1"]
+    assert "uniform (4 0 0)" in v["0/U"] and v["usr_requirement"].count("fixed velocity of 3m/s") == 1
+    v["usr_requirement"] = v["usr_requirement"].replace("fixed velocity of 3m/s", "fixed velocity of 4m/s")
+    log.append("forwardStep/1: usr_requirement inlet velocity 3 -> 4 m/s to match GT 0/U")
+
+    # squareBend/7-10: prose 'time step of 1 second', GT deltaT 0.5.
+    for i in (7, 8, 9, 10):
+        v = d[f"squareBend/{i}"]
+        assert "deltaT          0.5;" in v["system/controlDict"] and v["usr_requirement"].count("time step of 1 second") == 1, i
+        v["usr_requirement"] = v["usr_requirement"].replace("time step of 1 second", "time step of 0.5 second")
+        log.append(f"squareBend/{i}: usr_requirement time step 1 -> 0.5 s to match GT controlDict deltaT")
+
+    # pitzDaily/1-10, Cylinder/1-10: prose says zero-gradient pressure at outlet, GT 0/p outlet is fixedValue 0 (U is zeroGradient).
+    for fam in ("pitzDaily", "Cylinder"):
+        for i in range(1, 11):
+            v = d[f"{fam}/{i}"]
+            assert re.search(r"(outlet|right)\s*\{[^}]*fixedValue", v["0/p"]) and re.search(r"(outlet|right)\s*\{[^}]*zeroGradient", v["0/U"]), (fam, i)
+            assert v["usr_requirement"].count(P_OUTLET_OLD) == 1, (fam, i)
+            v["usr_requirement"] = v["usr_requirement"].replace(P_OUTLET_OLD, P_OUTLET_NEW)
+            log.append(f"{fam}/{i}: usr_requirement outlet pressure wording -> fixed-value p / zero-gradient U (matches GT)")
+
+    # shallowWaterWithSquareBump/1-10: prose only states uniform depth/momentum; GT setFieldsDict applies a bump
+    # override h 0.009 / hU (0.0009 0 0) that stayed at the template value in every variant. Describe it explicitly.
+    for i in range(1, 11):
+        v = d[f"shallowWaterWithSquareBump/{i}"]
+        sf = v["system/setFieldsDict"]
+        assert "volScalarFieldValue h  0.009" in sf and "volVectorFieldValue hU  (0.0009 0 0)" in sf and "box (0.45 0.45 0) (0.55 0.55 0.1)" in sf, i
+        v["usr_requirement"] = v["usr_requirement"].rstrip() + SHALLOW_BUMP_SENTENCE
+        log.append(f"shallowWaterWithSquareBump/{i}: appended explicit bump-region setFields values to usr_requirement")
+    return d
+
+
+def patch_round2_advanced(d, log):
+    # Cylinder_LES / Cylinder_SA: same outlet-pressure wording issue as Basic Cylinder.
+    for k in ("Cylinder_LES", "Cylinder_SA"):
+        v = d[k]
+        assert re.search(r"(outlet|right)\s*\{[^}]*fixedValue", v["0/p"]) and v["usr_requirement"].count(P_OUTLET_OLD) == 1, k
+        v["usr_requirement"] = v["usr_requirement"].replace(P_OUTLET_OLD, P_OUTLET_NEW)
+        log.append(f"{k}: usr_requirement outlet pressure wording -> fixed-value p / zero-gradient U (matches GT)")
+    # Five obstacle cases: GT 0/p outlet fixedValue $internalField, 0/U outlet pressureInletOutletVelocity.
+    for k in ("Double_Square_SA", "Diamond_Obstacle_SA", "Diamond_Obstacle_KOMEGASST",
+              "Rectangular_Obstacle_SA", "Rectangular_Obstacle_KOMEGASST"):
+        v = d[k]
+        assert re.search(r"outlet\s*\{[^}]*fixedValue", v["0/p"]) and "pressureInletOutletVelocity" in v["0/U"], k
+        assert v["usr_requirement"].count(P_OUTLET_OLD_ADV) == 1, k
+        v["usr_requirement"] = v["usr_requirement"].replace(P_OUTLET_OLD_ADV, P_OUTLET_NEW_ADV)
+        log.append(f"{k}: usr_requirement outlet wording -> fixed-value p / pressureInletOutletVelocity U (matches GT)")
+    # nozzleFlow2D_SA: prose contradicts itself ('end time is 1e-5s' then 'final time of 10 seconds'); GT endTime 1e-05.
+    v = d["nozzleFlow2D_SA"]
+    old = "The end time is 1e-5s. seconds, and run the simulation until a final time of 10 seconds."
+    assert "endTime         1e-05;" in v["system/controlDict"] and v["usr_requirement"].count(old) == 1
+    v["usr_requirement"] = v["usr_requirement"].replace(old, "The end time is 1e-5 s.")
+    log.append("nozzleFlow2D_SA: removed self-contradictory 'final time of 10 seconds'; end time 1e-5 s matches GT")
+    # Rectangular_Obstacle_SA: GT 0/nuTilda names the auto-generated empty patch 'defaultfaces' (all other 0/* files and
+    # blockMesh use 'defaultFaces'; patch names are case-sensitive, so the GT cannot start). GT edit for executability.
+    v = d["Rectangular_Obstacle_SA"]
+    assert v["0/nuTilda"].count("defaultfaces") == 1 and all("defaultFaces" in v[f] for f in ("0/U", "0/p", "0/nut"))
+    v["0/nuTilda"] = v["0/nuTilda"].replace("defaultfaces", "defaultFaces")
+    log.append("Rectangular_Obstacle_SA: GT 0/nuTilda patch 'defaultfaces' -> 'defaultFaces' (case-sensitive; executability)")
+    return d
+
+
 def main():
     log = []
     for name, fn in [("basic", patch_basic), ("advanced", patch_advanced)]:
@@ -99,6 +173,7 @@ def main():
         d = json.load(open(src, encoding="utf-8"))
         n_before = sum(len(v) for v in d.values())
         d = fn(d, log)
+        d = (patch_round2_basic if name == "basic" else patch_round2_advanced)(d, log)
         n_after = sum(len(v) for v in d.values())
         with open(dst, "w", encoding="utf-8") as f:
             json.dump(d, f, indent=2, ensure_ascii=False)
