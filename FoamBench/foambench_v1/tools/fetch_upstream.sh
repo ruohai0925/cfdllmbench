@@ -1,11 +1,11 @@
 #!/bin/bash
-# Fetch everything foambench_v1 needs from outside itself, into upstream/.
+# Clone MetaOpenFOAM, the framework under test, into upstream/.
 #   tools/fetch_upstream.sh
 #
-# In practice that is just MetaOpenFOAM, the framework under test: it has its own git
-# repo, so it is not tracked here. The unmodified Kaggle JSONs are tracked in upstream/
-# already (patch_dataset.py needs them to re-derive the v1 data); this script only
-# reports if they are missing.
+# That is the only thing this script downloads. It writes nothing outside upstream/ and
+# never touches Dataset/. The two Kaggle JSONs are already tracked in upstream/, so
+# nothing needs to be fetched for them -- the loop below only reports if one is missing,
+# in which case it prints where to download it by hand.
 set -e
 PKG="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UP="$PKG/upstream"
