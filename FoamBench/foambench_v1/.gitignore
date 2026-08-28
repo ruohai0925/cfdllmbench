@@ -19,3 +19,6 @@ results/*.csv
 
 __pycache__/
 *.pyc
+
+# Per-experiment copies of submissions (moved out of Dataset/ so scoring sees one run per case)
+results/runs/
