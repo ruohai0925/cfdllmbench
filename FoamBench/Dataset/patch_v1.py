@@ -180,6 +180,39 @@ def patch_round2_advanced(d, log):
     return d
 
 
+def patch_round3(d, split, log):
+    """Remove GT files proven dead, and fix nuTilda wall BCs in the SA obstacle cases.
+
+    The dead-file list in Dataset/dead_files_v1.json was produced empirically: every listed
+    file was deleted, the case re-run under OpenFOAM 10, and the end-time results compared
+    byte-for-byte against the unmodified run. All 61 cases / 158 files were identical, so
+    none of them can influence the solution. They only cost structure score, because
+    similarity_report.py grades a submission against the GT file list.
+    """
+    dead = json.load(open(os.path.join(HERE, "dead_files_v1.json"), encoding="utf-8"))[split.capitalize()]
+    n = 0
+    for case, files in dead.items():
+        v = d[case]
+        removed = [f for f in files if v.pop(f, None) is not None]
+        assert removed == files, (case, set(files) - set(removed))
+        n += len(removed)
+        log.append(f"{case}: removed proven-dead {removed}")
+    log.append(f"{split}: removed {n} dead GT files from {len(dead)} cases")
+
+    if split == "advanced":
+        # nutkWallFunction is nut's wall function; SA's nuTilda must be fixedValue 0 at walls.
+        for case in ("Diamond_Obstacle_SA", "Rectangular_Obstacle_SA", "Double_Square_SA"):
+            v = d[case]
+            t = v["0/nuTilda"]
+            assert t.count("nutkWallFunction") == 3, case
+            t = re.sub(r"type\s+nutkWallFunction;", "type            fixedValue;\n        value           uniform 0;", t)
+            # drop the now-duplicated pre-existing value line that followed the wall function
+            t = re.sub(r"(value\s+uniform 0;\n)\s*value\s+uniform [\d.e-]+;", r"\1", t)
+            v["0/nuTilda"] = t
+            log.append(f"{case}: 0/nuTilda wall BCs nutkWallFunction -> fixedValue 0 (SA wall condition; GT must be re-run)")
+    return d
+
+
 def main():
     log = []
     for name, fn in [("basic", patch_basic), ("advanced", patch_advanced)]:
@@ -189,6 +222,7 @@ def main():
         n_before = sum(len(v) for v in d.values())
         d = fn(d, log)
         d = (patch_round2_basic if name == "basic" else patch_round2_advanced)(d, log)
+        d = patch_round3(d, name, log)
         n_after = sum(len(v) for v in d.values())
         with open(dst, "w", encoding="utf-8") as f:
             json.dump(d, f, indent=2, ensure_ascii=False)

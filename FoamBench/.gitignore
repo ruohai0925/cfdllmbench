@@ -1,0 +1,12 @@
+# Unpacked benchmark cases and run results (regenerate with Dataset/unpack_v1.py)
+Dataset/Basic/
+Dataset/Advanced/
+
+# Framework under test (has its own git repo)
+algorithm/MetaOpenFOAM/
+
+# Pipeline outputs
+logs/
+results/
+runs/
+*.csv

@@ -26,6 +26,38 @@ are removed. Full audit: `docs/AUDIT_requirement_vs_GT.md`.
 | `Rectangular_Obstacle_SA` | GT `0/nuTilda` names the auto-generated empty patch `defaultfaces`; blockMesh and every other `0/*` file use `defaultFaces`. Patch names are case-sensitive, so the GT cannot start. | **GT edit** (executability): rename to `defaultFaces` in `0/nuTilda`. |
 | `wedge/7`, `wedge/8`, `wedge/10` | GT `Pr` was swept (0.71 / 0.71 / 1.5) but every prose says "Pr is 1"; also made requirements 6≡7 and 8≡9≡10 identical. mu = 0 (inviscid) so Pr does not affect the solution — wording/ROUGE only. | Requirement "Pr is 1" → "Pr is 0.71 / 0.71 / 1.5". |
 
+### Round 3: dead GT files and the SA wall condition
+
+Two independent GT-consistency scans (a local OpenFOAM-10 agent that materialised and ran all 126 cases, and
+gpt-5.6-sol doing static analysis; reports in `docs/`) plus a mechanical scan agreed that many cases ship files
+no tool ever reads. Because `similarity_report.py` grades a submission against the **GT file list**, every such
+file silently costs structure score: a submission that correctly writes only the files the case needs is marked
+down for the ones it "missed".
+
+**Proof, not inference.** Each candidate was deleted, the case re-run under OpenFOAM 10, and the end-time result
+compared byte-for-byte with the unmodified run. All **61 cases / 158 files**: still reach `End`, results
+**bit-identical**. The list is recorded in `Dataset/dead_files_v1.json` and applied by `patch_v1.py`.
+
+| Removed | Cases | Why it is dead |
+|---|---|---|
+| `system/decomposeParDict` | 25 | every `Allrun` is serial; `decomposePar` is never invoked |
+| `0/k` | 22 | case is `laminar`, or the selected model does not read k |
+| `0/alphat`, `0/nut` | 20 each | not read on the selected laminar / model path |
+| `system/functions` | 20 | `controlDict` already inlines the same `functions { #includeFunc ... }`; nothing does `#include "functions"` (BernardCells' copy even uses the stale `name=` instead of OF10's `funcName=`) |
+| `0/epsilon`, `0/nuTilda`, `0/Ydefault` | 12 each | wrong-model or unused-template fields (all species have their own file, so `Ydefault` is never consulted) |
+| `0/omega` | 10 | laminar cases |
+| `system/blockMeshDict1` | 5 | headerless fragment, byte-identical across the five obstacle cases, referenced by nothing, describing a different mesh (10x15 vs 50x25/100x50) |
+
+Effect on scoring: the TreeScore ceiling for a perfect submission rises from a mean of **0.9416** (59 of 126 cases
+below 0.95, worst 0.767 for BernardCells) to **1.000** for every case.
+
+Also fixed: `Diamond_Obstacle_SA`, `Rectangular_Obstacle_SA`, `Double_Square_SA` set their `0/nuTilda` wall patches to
+`nutkWallFunction` — that is `nut`'s wall function, not a Spalart-Allmaras wall condition, which must be
+`fixedValue uniform 0`. Corrected. Measured impact: **none** — re-running gives bit-identical fields (0 of 10000
+cells changed), because with no `k` field present the wall value was never updated anyway. It is a specification
+error with no numerical consequence, kept as a correctness fix so that a submission writing the proper condition
+matches the GT text.
+
 ### Worked example: the shallow-water bump (why a swept prose needs a swept GT)
 
 `shallowWaterFoam` carries three quantities: the bed elevation `h0`, the water depth `h` (bed to surface), and the

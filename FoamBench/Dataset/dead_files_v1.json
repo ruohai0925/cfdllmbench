@@ -1,0 +1,286 @@
+{
+ "Advanced": {
+  "Cavity_LES": [
+   "0/nuTilda"
+  ],
+  "Cylinder_LES": [
+   "0/nuTilda"
+  ],
+  "Diamond_Obstacle_KOMEGASST": [
+   "system/blockMeshDict1",
+   "system/decomposeParDict"
+  ],
+  "Diamond_Obstacle_SA": [
+   "system/blockMeshDict1",
+   "system/decomposeParDict"
+  ],
+  "Double_Square_SA": [
+   "system/blockMeshDict1",
+   "system/decomposeParDict"
+  ],
+  "Rectangular_Obstacle_KOMEGASST": [
+   "system/blockMeshDict1",
+   "system/decomposeParDict"
+  ],
+  "Rectangular_Obstacle_SA": [
+   "system/blockMeshDict1",
+   "system/decomposeParDict"
+  ],
+  "counterFlowFlame2D_KE": [
+   "0/Ydefault"
+  ],
+  "counterFlowFlame2D_SA": [
+   "0/Ydefault",
+   "0/epsilon"
+  ],
+  "nozzleFlow2D_SA": [
+   "0/epsilon",
+   "0/k"
+  ],
+  "obliqueShock_LES": [
+   "0/k"
+  ]
+ },
+ "Basic": {
+  "BernardCells/1": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "BernardCells/10": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "BernardCells/2": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "BernardCells/3": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "BernardCells/4": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "BernardCells/5": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "BernardCells/6": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "BernardCells/7": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "BernardCells/8": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "BernardCells/9": [
+   "0/alphat",
+   "0/epsilon",
+   "0/k",
+   "0/nut",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/1": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/10": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/2": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/3": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/4": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/5": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/6": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/7": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/8": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "counterFlowFlame2D/9": [
+   "0/Ydefault",
+   "0/alphat",
+   "system/functions"
+  ],
+  "damBreakWithObstacle/1": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "damBreakWithObstacle/10": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "damBreakWithObstacle/2": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "damBreakWithObstacle/3": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "damBreakWithObstacle/4": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "damBreakWithObstacle/5": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "damBreakWithObstacle/6": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "damBreakWithObstacle/7": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "damBreakWithObstacle/8": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "damBreakWithObstacle/9": [
+   "0/k",
+   "0/nut",
+   "0/omega",
+   "system/decomposeParDict"
+  ],
+  "pitzDaily/1": [
+   "0/nuTilda"
+  ],
+  "pitzDaily/10": [
+   "0/nuTilda"
+  ],
+  "pitzDaily/2": [
+   "0/nuTilda"
+  ],
+  "pitzDaily/3": [
+   "0/nuTilda"
+  ],
+  "pitzDaily/4": [
+   "0/nuTilda"
+  ],
+  "pitzDaily/5": [
+   "0/nuTilda"
+  ],
+  "pitzDaily/6": [
+   "0/nuTilda"
+  ],
+  "pitzDaily/7": [
+   "0/nuTilda"
+  ],
+  "pitzDaily/8": [
+   "0/nuTilda"
+  ],
+  "pitzDaily/9": [
+   "0/nuTilda"
+  ],
+  "squareBend/1": [
+   "system/decomposeParDict"
+  ],
+  "squareBend/10": [
+   "system/decomposeParDict"
+  ],
+  "squareBend/2": [
+   "system/decomposeParDict"
+  ],
+  "squareBend/3": [
+   "system/decomposeParDict"
+  ],
+  "squareBend/4": [
+   "system/decomposeParDict"
+  ],
+  "squareBend/5": [
+   "system/decomposeParDict"
+  ],
+  "squareBend/6": [
+   "system/decomposeParDict"
+  ],
+  "squareBend/7": [
+   "system/decomposeParDict"
+  ],
+  "squareBend/8": [
+   "system/decomposeParDict"
+  ],
+  "squareBend/9": [
+   "system/decomposeParDict"
+  ]
+ }
+}
