@@ -96,9 +96,6 @@ P_OUTLET_NEW = "fixed-value pressure of 0 at the outlet (right) with zero-gradie
 P_OUTLET_OLD_ADV = "The right boundary is the outlet using zero gradient pressure condition."
 P_OUTLET_NEW_ADV = ("The right boundary is the outlet, with fixed-value pressure equal to the internal field "
                     "and a pressureInletOutletVelocity condition for velocity.")
-SHALLOW_BUMP_SENTENCE = (" The square bump occupies the box (0.45, 0.45) to (0.55, 0.55) with bed elevation h0 = 0.001 m; "
-                         "inside the bump region initialise h = 0.009 m and hU = (0.0009, 0, 0) (all other cells keep the "
-                         "uniform values above), applied with setFields.")
 
 
 def patch_round2_basic(d, log):
@@ -124,14 +121,32 @@ def patch_round2_basic(d, log):
             v["usr_requirement"] = v["usr_requirement"].replace(P_OUTLET_OLD, P_OUTLET_NEW)
             log.append(f"{fam}/{i}: usr_requirement outlet pressure wording -> fixed-value p / zero-gradient U (matches GT)")
 
-    # shallowWaterWithSquareBump/1-10: prose only states uniform depth/momentum; GT setFieldsDict applies a bump
-    # override h 0.009 / hU (0.0009 0 0) that stayed at the template value in every variant. Describe it explicitly.
+    # shallowWaterWithSquareBump/2-10: the generator swept the background depth D (0.02..0.1) but left the bump
+    # override at the D=0.01 template values (h 0.009, hU (0.0009 0 0)), so the initial free surface has a hole of
+    # depth D-0.01 over the bump and the velocity is no longer uniform. Rebuild the override for a flat free surface
+    # (h = D - h0_bump) and uniform velocity U = 0.001/D (hU = U*h), and propagate to the stored setFields output
+    # (0/h, 0/hU) and the stale 0/h.orig, 0/hTotal (uniform 0.01 -> D). Variant 1 reproduces the original values.
     for i in range(1, 11):
         v = d[f"shallowWaterWithSquareBump/{i}"]
+        D = float(re.search(r"uniform water depth of ([\d.]+) m", v["usr_requirement"]).group(1))
         sf = v["system/setFieldsDict"]
-        assert "volScalarFieldValue h  0.009" in sf and "volVectorFieldValue hU  (0.0009 0 0)" in sf and "box (0.45 0.45 0) (0.55 0.55 0.1)" in sf, i
-        v["usr_requirement"] = v["usr_requirement"].rstrip() + SHALLOW_BUMP_SENTENCE
-        log.append(f"shallowWaterWithSquareBump/{i}: appended explicit bump-region setFields values to usr_requirement")
+        assert f"volScalarFieldValue h {D:g}" in sf and "volVectorFieldValue hU (0.001 0 0)" in sf, (i, D)
+        assert "volScalarFieldValue h  0.009" in sf and "volVectorFieldValue hU  (0.0009 0 0)" in sf and "volScalarFieldValue h0 0.001" in sf, i
+        hb = round(D - 0.001, 6)
+        hUb = float(f"{0.001 * hb / D:.6g}")
+        v["system/setFieldsDict"] = sf.replace("volScalarFieldValue h  0.009", f"volScalarFieldValue h  {hb:g}") \
+                                      .replace("volVectorFieldValue hU  (0.0009 0 0)", f"volVectorFieldValue hU  ({hUb:g} 0 0)")
+        assert len(re.findall(r"^0\.009$", v["0/h"], re.M)) == 4 and v["0/hU"].count("(0.0009 0 0)") == 4, i
+        v["0/h"] = re.sub(r"^0\.009$", f"{hb:g}", v["0/h"], flags=re.M)
+        v["0/hU"] = v["0/hU"].replace("(0.0009 0 0)", f"({hUb:g} 0 0)")
+        for f in ("0/h.orig", "0/hTotal"):
+            assert "uniform 0.01;" in v[f], (i, f)
+            v[f] = v[f].replace("uniform 0.01;", f"uniform {D:g};")
+        v["usr_requirement"] = v["usr_requirement"].rstrip() + (
+            f" The square bump occupies the box (0.45, 0.45) to (0.55, 0.55) with bed elevation h0 = 0.001 m; "
+            f"initialise the free surface flat and the velocity uniform, i.e. over the bump h = {hb:g} m and "
+            f"hU = ({hUb:g}, 0, 0), applied with setFields.")
+        log.append(f"shallowWaterWithSquareBump/{i}: D={D:g}: bump h 0.009->{hb:g}, hU 0.0009->{hUb:g} in setFieldsDict/0/h/0/hU; h.orig,hTotal 0.01->{D:g}; prose describes bump (GT edit; re-run GT)")
     return d
 
 

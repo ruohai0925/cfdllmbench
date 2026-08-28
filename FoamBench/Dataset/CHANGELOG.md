@@ -21,10 +21,42 @@ are removed. Full audit: `docs/AUDIT_requirement_vs_GT.md`.
 | `squareBend/7`–`/10` | Prose "time step of 1 second", GT `deltaT 0.5` (endTime/writeInterval agree; 1–6 have deltaT 1). | Prose 1 → 0.5 s. |
 | `pitzDaily/1`–`/10`, `Cylinder/1`–`/10`, `Cylinder_LES`, `Cylinder_SA` | Prose "zero gradient pressure at the outlet (right)"; GT `0/p` outlet is `fixedValue 0` and it is `0/U` that is `zeroGradient` (conventional outlet). | Prose → "fixed-value pressure of 0 at the outlet (right) with zero-gradient velocity there". |
 | `Double_Square_SA`, `Diamond_Obstacle_SA`, `Diamond_Obstacle_KOMEGASST`, `Rectangular_Obstacle_SA`, `Rectangular_Obstacle_KOMEGASST` | Prose "outlet using zero gradient pressure condition"; GT `0/p` outlet `fixedValue $internalField`, `0/U` outlet `pressureInletOutletVelocity`. | Prose → fixed-value p / pressureInletOutletVelocity U. |
-| `shallowWaterWithSquareBump/1`–`/10` | Prose only states uniform depth (0.01…0.1) and uniform momentum (0.001,0,0); GT `setFieldsDict` additionally overrides the bump box with `h 0.009`, `hU (0.0009 0 0)`, `h0 0.001` — template values that were never swept with the depth. GT was run as-is, so the stored `0/h`/`0/hU` contain them. | Prose: append the bump-box override explicitly (values as in GT). Physically the bump override is stale for depth ≥ 0.02 (free-surface dip); a v2 could re-derive the override per variant, which requires re-running GT. |
+| `shallowWaterWithSquareBump/2`–`/10` | Stale bump override — see the worked explanation below. | **GT edit** (re-run GT): rebuild the bump override per variant for a flat free surface and uniform velocity; propagate to `0/h`, `0/hU`, `0/h.orig`, `0/hTotal`; prose states the bump values explicitly. Variant 1 is reproduced unchanged by the same formula. |
 | `nozzleFlow2D_SA` | Prose self-contradicts: "The end time is 1e-5s. seconds, and run the simulation until a final time of 10 seconds."; GT `endTime 1e-05`. | Prose → "The end time is 1e-5 s." |
 | `Rectangular_Obstacle_SA` | GT `0/nuTilda` names the auto-generated empty patch `defaultfaces`; blockMesh and every other `0/*` file use `defaultFaces`. Patch names are case-sensitive, so the GT cannot start. | **GT edit** (executability): rename to `defaultFaces` in `0/nuTilda`. |
 | `wedge/7`, `wedge/8`, `wedge/10` | GT `Pr` was swept (0.71 / 0.71 / 1.5) but every prose says "Pr is 1"; also made requirements 6≡7 and 8≡9≡10 identical. mu = 0 (inviscid) so Pr does not affect the solution — wording/ROUGE only. | Requirement "Pr is 1" → "Pr is 0.71 / 0.71 / 1.5". |
+
+### Worked example: the shallow-water bump (why a swept prose needs a swept GT)
+
+`shallowWaterFoam` carries three quantities: the bed elevation `h0`, the water depth `h` (bed to surface), and the
+free-surface height `h0 + h`. The original tutorial (= variant 1, depth D = 0.01) is self-consistent:
+
+```
+background:  h0 = 0      h = 0.010   -> surface 0.010
+bump box:    h0 = 0.001  h = 0.009   -> surface 0.010   (flat)
+             hU = 0.0009 = 0.009 * 0.1 m/s ; background hU = 0.001 = 0.010 * 0.1 m/s   (uniform velocity 0.1 m/s)
+```
+
+The bump is a 0.001 m rise of the bed under a 0.1 m x 0.1 m box; the override reduces `h` there so that the initial
+free surface is flat and the velocity uniform — "uniform flow over a submerged bump".
+
+Variants 2–10 sweep the background depth D to 0.02 … 0.1 (prose and `setFieldsDict` default both updated), but the
+bump override was left at the D = 0.01 values in every variant:
+
+```
+variant 2:  background  h = 0.020 -> surface 0.020
+            bump box    h = 0.009 -> surface 0.010   -> a 0.010 m hole in the free surface
+variant 10: background  h = 0.100 ; bump box h = 0.009 -> a 0.090 m hole ; velocity 0.1 m/s in the box vs 0.01 m/s outside
+```
+
+So the initial condition is no longer "uniform flow over a bump" but a collapsing hole; the generator swept one string
+and not the other. The GT was run as-is, so its reference fields describe the hole. The prose ("uniform water depth",
+"uniform momentum") contradicts it.
+
+v1 fix (GT edit): for each variant, `h_bump = D - 0.001`, `U = 0.001 / D`, `hU_bump = U * h_bump`, written to
+`setFieldsDict` and to the four bump cells of the stored `0/h` / `0/hU`; the stale `0/h.orig` and `0/hTotal`
+(`uniform 0.01` in every variant) become `uniform D`. Applying the formula to variant 1 reproduces the original bytes.
+Because the initial condition changes, the GT reference fields for variants 2–10 must be re-run before NMSE scoring.
 
 ### Independent validation
 
