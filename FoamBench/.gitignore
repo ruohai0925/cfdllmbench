@@ -5,6 +5,10 @@ Dataset/Advanced/
 # Framework under test (has its own git repo)
 algorithm/MetaOpenFOAM/
 
+# Working notes: audit trail, model scan reports, pipeline analysis.
+# Kept locally only -- Dataset/CHANGELOG.md is the authoritative record of every change.
+docs/
+
 # Pipeline outputs
 logs/
 results/
