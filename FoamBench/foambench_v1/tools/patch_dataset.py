@@ -123,6 +123,13 @@ P_OUTLET_NEW_ADV = ("The right boundary is the outlet, with fixed-value pressure
                     "and a pressureInletOutletVelocity condition for velocity.")
 
 
+BERNARD_OLD = ("Perform a 3D Bernard Cell simulation using OpenFOAM buoyantFoam solver. "
+               "The computational domain spans 9 m x 1 m x 2 m.")
+BERNARD_NEW = ("Perform a 2D Bernard Cell simulation using OpenFOAM buoyantFoam solver. "
+               "The computational domain spans 9 m x 1 m in x and y, meshed with 90 x 10 cells, "
+               "with a single cell of 2 m thickness in z and empty front and back patches.")
+
+
 def fix_basic_prompt_mismatches(d, log):
     # forwardStep/1: prose 3 m/s, GT 0/U 4 m/s (variants 2-10 are 1.1..2.7 and agree with GT).
     v = d["forwardStep/1"]
@@ -145,6 +152,18 @@ def fix_basic_prompt_mismatches(d, log):
             assert v["usr_requirement"].count(P_OUTLET_OLD) == 1, (fam, i)
             v["usr_requirement"] = v["usr_requirement"].replace(P_OUTLET_OLD, P_OUTLET_NEW)
             log.append(f"{fam}/{i}: usr_requirement outlet pressure wording -> fixed-value p / zero-gradient U (matches GT)")
+
+    # BernardCells/1-10: prose says "3D ... 9 m x 1 m x 2 m"; GT blockMeshDict is (90 10 1) with
+    # frontAndBack empty, i.e. the 2D tutorial case -- the 2 m in z is the thickness of a single
+    # empty-bounded layer. An agent that follows the prompt builds a 3D mesh and is scored against a
+    # 2D solution (seen with Foam-Agent: (90 10 20)).
+    for i in range(1, 11):
+        v = d[f"BernardCells/{i}"]
+        bm = v["system/blockMeshDict"]
+        assert "(90 10 1)" in bm and re.search(r"frontAndBack\s*\{\s*type\s+empty", bm), i
+        assert v["usr_requirement"].count(BERNARD_OLD) == 1, i
+        v["usr_requirement"] = v["usr_requirement"].replace(BERNARD_OLD, BERNARD_NEW)
+        log.append(f"BernardCells/{i}: usr_requirement '3D ... 9 m x 1 m x 2 m' -> 2D with a single empty-bounded cell in z (matches GT blockMeshDict)")
 
     # shallowWaterWithSquareBump/2-10: the generator swept the background depth D (0.02..0.1) but left the bump
     # override at the D=0.01 template values (h 0.009, hU (0.0009 0 0)), so the initial free surface has a hole of
