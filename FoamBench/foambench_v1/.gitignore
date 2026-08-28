@@ -1,0 +1,21 @@
+# Unpacked benchmark cases and their run results.
+# Regenerate with: python tools/unpack.py
+Dataset/Basic/
+Dataset/Advanced/
+
+# Fetched from outside the package. The unmodified Kaggle JSONs are tracked so
+# tools/patch_dataset.py can re-derive the v1 data offline; MetaOpenFOAM has its
+# own git repo and is cloned by tools/fetch_upstream.sh.
+upstream/*
+!upstream/FoamBench_basic.json
+!upstream/FoamBench_advanced.json
+
+# Working notes: audit trail, model scan reports, pipeline analysis.
+# Local only -- CHANGELOG.md is the authoritative record of every change.
+docs/
+
+# Scoring output (results/gt_run_summary.tsv is tracked)
+results/*.csv
+
+__pycache__/
+*.pyc

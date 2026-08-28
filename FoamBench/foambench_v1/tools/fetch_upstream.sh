@@ -2,10 +2,10 @@
 # Fetch everything foambench_v1 needs from outside itself, into upstream/.
 #   tools/fetch_upstream.sh
 #
-# Two things live outside this package:
-#   1. the unmodified Kaggle JSONs -- only needed to re-derive the corrected v1 data
-#      with tools/patch_dataset.py; the v1 JSONs themselves are already in Dataset/
-#   2. MetaOpenFOAM, the framework under test (it has its own git repo)
+# In practice that is just MetaOpenFOAM, the framework under test: it has its own git
+# repo, so it is not tracked here. The unmodified Kaggle JSONs are tracked in upstream/
+# already (patch_dataset.py needs them to re-derive the v1 data); this script only
+# reports if they are missing.
 set -e
 PKG="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UP="$PKG/upstream"
@@ -19,12 +19,10 @@ mkdir -p "$UP"
 for f in FoamBench_basic.json FoamBench_advanced.json; do
     if [ -f "$UP/$f" ]; then
         echo "have $f"
-    elif [ -f "$PKG/../Dataset/$f" ]; then
-        cp "$PKG/../Dataset/$f" "$UP/$f"; echo "copied $f from the sibling upstream checkout"
     else
-        echo "MISSING $f -- download the FoamBench folder from"
-        echo "  $KAGGLE"
-        echo "and place $f in $UP/"
+        echo "MISSING $f -- it is normally tracked in upstream/. Download the FoamBench"
+        echo "  folder from $KAGGLE"
+        echo "  and place $f in $UP/"
     fi
 done
 

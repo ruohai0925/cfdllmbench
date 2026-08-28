@@ -33,10 +33,11 @@ foambench_v1/
   results/
     gt_run_summary.tsv      status / wall-clock / last written time for all 126 GT runs
     *.csv                   scoring output (generated; not tracked)
-  upstream/                 fetched, not tracked -- see tools/fetch_upstream.sh
-    FoamBench_basic.json    the unmodified Kaggle originals, needed only to
-    FoamBench_advanced.json re-derive the v1 data with patch_dataset.py
-    MetaOpenFOAM/           the framework under test (has its own git repo)
+  upstream/
+    FoamBench_basic.json    the unmodified Kaggle originals, tracked so that
+    FoamBench_advanced.json patch_dataset.py can re-derive v1 offline
+    MetaOpenFOAM/           the framework under test; not tracked (own git repo),
+                            cloned by tools/fetch_upstream.sh
   docs/                     working notes, kept local only (not tracked)
 ```
 
@@ -61,10 +62,10 @@ re-run without the file and produced bit-identical results at the end time.
 
 ## Quickstart
 
-Set up OpenFOAM 10 and the Python dependencies, then fetch what lives outside this
-package. `fetch_upstream.sh` copies the Kaggle JSONs from a sibling upstream checkout if
-it finds one, otherwise it prints the download URL; it clones MetaOpenFOAM at `85aae62`,
-the last commit before the project was deprecated and moved to `svd-ai-lab/sim-cli`.
+Set up OpenFOAM 10 and the Python dependencies, then fetch the framework under test.
+`fetch_upstream.sh` clones MetaOpenFOAM at `85aae62`, the last commit before the project
+was deprecated and moved to `svd-ai-lab/sim-cli`, and checks that the Kaggle originals
+are in place.
 
 ```bash
 source /opt/openfoam10/etc/bashrc          # never source this under `set -u`
@@ -74,8 +75,7 @@ tools/fetch_upstream.sh
 ```
 
 Regenerate the corrected JSONs from the untouched originals (optional; the v1 JSONs are
-committed, so a user who only wants to run the benchmark can skip this and `upstream/`
-entirely):
+committed, so a user who only wants to run the benchmark can skip this step):
 
 ```bash
 python tools/patch_dataset.py
@@ -127,3 +127,8 @@ after:
 `execution_report.py` now accepts both a flat case layout and one nested under a parent
 directory; the three scoring scripts previously disagreed about which layout a submission
 should have, and no single layout satisfied all of them.
+
+The upstream files themselves are left untouched, so the upstream `README.md` still names
+the execution output `execution_status_basic.csv` / `execution_status_advanced.csv`. No
+script writes those; the files are `basic_success_report.csv` and
+`advanced_success_report.csv`, and here they land in `results/`.
