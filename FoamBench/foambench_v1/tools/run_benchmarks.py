@@ -34,6 +34,10 @@ OPENFOAM_DIR = os.environ.get("WM_PROJECT_DIR") or "/opt/openfoam10"
 # "the first sub-directory that is not GT_Files" as the submission, so there must be
 # exactly one of these per case.
 SUBMISSION = "foam_agent_run"
+# Model Foam-Agent runs with unless FOAMAGENT_MODEL_VERSION is set. Its own default,
+# gpt-5.3-codex, is refused by the subscription backend ("not supported when using
+# Codex with a ChatGPT account"); gpt-5.6-sol is accepted.
+DEFAULT_MODEL = "gpt-5.6-sol"
 
 
 def agent_python():
@@ -45,21 +49,46 @@ def agent_python():
     return env_python if os.path.isfile(env_python) else sys.executable
 
 
+def agent_env():
+    """Environment for Foam-Agent's own scripts. foambench_main.py re-invokes a bare
+    `python src/main.py`, so the interpreter's directory has to lead PATH; and the
+    OPENAI_API_KEY this machine keeps for other purposes must not leak in, because the
+    framework is meant to authenticate through its own configured provider."""
+    env = dict(os.environ)
+    env["PATH"] = os.path.dirname(agent_python()) + os.pathsep + env.get("PATH", "")
+    env["WM_PROJECT_DIR"] = OPENFOAM_DIR
+    env.setdefault("FOAMAGENT_MODEL_VERSION", DEFAULT_MODEL)
+    env.pop("OPENAI_API_KEY", None)
+    return env
+
+
 def run(cmd, cwd):
     print("  $ " + " ".join(cmd), flush=True)
     try:
-        subprocess.run(cmd, cwd=cwd, check=True)
+        subprocess.run(cmd, cwd=cwd, check=True, env=agent_env())
         return True
     except subprocess.CalledProcessError as e:
         print(f"  failed: {e}", flush=True)
         return False
 
 
+# The four FAISS indices Foam-Agent retrieves from, under database/faiss/<embedding model>/.
+DB_INDEXES = ["openfoam_tutorials_structure", "openfoam_tutorials_details",
+              "openfoam_allrun_scripts", "openfoam_command_help"]
+
+
 def database_is_built():
-    db = os.path.join(AGENT_ROOT, "database")
-    if not os.path.isdir(db):
-        return False
-    return any(name.startswith("faiss") for name in os.listdir(db))
+    """True when the pre-built indices for the configured embedding model are present
+    and are real files. Foam-Agent ships them through git-LFS; a checkout without
+    `git lfs pull` holds ~130-byte pointer files that look like a database but are not."""
+    model = os.environ.get("FOAMAGENT_EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-0.6B")
+    model_dir = model.replace("/", "_").replace(":", "_")
+    base = os.path.join(AGENT_ROOT, "database", "faiss", model_dir)
+    for name in DB_INDEXES:
+        idx = os.path.join(base, name, "index.faiss")
+        if not os.path.isfile(idx) or os.path.getsize(idx) < 4096:
+            return False
+    return True
 
 
 def init_database(force=False):
@@ -67,6 +96,10 @@ def init_database(force=False):
         print(f"RAG database already present in {os.path.join(AGENT_ROOT, 'database')}; "
               f"skipping (use --rebuild-db to force)", flush=True)
         return True
+    print("RAG database missing or still git-LFS pointers. If Foam-Agent was cloned "
+          "without git-lfs, run `git lfs pull` in it first: the shipped database was built "
+          "from the full OpenFOAM tutorial set, and a rebuild here only sees whatever "
+          "tutorials this machine has.", flush=True)
     print("Building the RAG database (once, not per case)", flush=True)
     cmd = [agent_python(), "-u", os.path.join(AGENT_ROOT, "init_database.py"),
            "--openfoam_path", OPENFOAM_DIR]
@@ -140,6 +173,9 @@ def main():
     print(f"Foam-Agent : {AGENT_ROOT}")
     print(f"python     : {agent_python()}")
     print(f"OpenFOAM   : {OPENFOAM_DIR}")
+    e = agent_env()
+    print(f"model      : {e.get('FOAMAGENT_MODEL_PROVIDER', 'openai-codex (Foam-Agent default)')} / "
+          f"{e['FOAMAGENT_MODEL_VERSION']}")
     print(f"cases      : {len(cases)} ({args.mode})", flush=True)
 
     if not args.skip_db and not init_database(force=args.rebuild_db):

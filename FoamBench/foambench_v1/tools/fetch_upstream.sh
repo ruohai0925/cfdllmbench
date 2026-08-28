@@ -30,8 +30,21 @@ else
     git clone "$AGENT_URL" "$UP/Foam-Agent"
 fi
 
+# Foam-Agent's pre-built RAG database lives in git-LFS. Without git-lfs the checkout
+# holds pointer files, and the index sizes give it away.
+if command -v git-lfs >/dev/null 2>&1 || [ -x "$UP/Foam-Agent/env/bin/git-lfs" ]; then
+    [ -x "$UP/Foam-Agent/env/bin/git-lfs" ] && export PATH="$UP/Foam-Agent/env/bin:$PATH"
+    git -C "$UP/Foam-Agent" lfs install --local >/dev/null
+    git -C "$UP/Foam-Agent" lfs pull
+    echo "Foam-Agent database: $(du -sh "$UP/Foam-Agent/database/faiss" | cut -f1) in database/faiss"
+else
+    echo "git-lfs not found: Foam-Agent's database is still LFS pointers. Install git-lfs"
+    echo "  (e.g. conda install -c conda-forge git-lfs) and run: git -C $UP/Foam-Agent lfs pull"
+fi
+
 echo
 echo "Next: create Foam-Agent's environment (its pyproject deps suffice), then run one case."
-echo "  conda create -p $UP/Foam-Agent/env python=3.12 pip && $UP/Foam-Agent/env/bin/pip install -e $UP/Foam-Agent sentence-transformers"
+echo "  conda create -p $UP/Foam-Agent/env python=3.12 pip git-lfs -c conda-forge"
+echo "  $UP/Foam-Agent/env/bin/pip install -e \"$UP/Foam-Agent[all]\" sentence-transformers"
 echo "  python $PKG/tools/run_benchmarks.py --only Basic/Cavity/1"
 echo "upstream/ ready at $UP"

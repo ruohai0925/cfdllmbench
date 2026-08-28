@@ -84,10 +84,18 @@ Set up OpenFOAM 10 and the Python dependencies, then fetch the framework under t
 source /opt/openfoam10/etc/bashrc          # never source this under `set -u`
 export WM_PROJECT_DIR=/opt/openfoam10
 pip install pandas pyvista rouge-score     # for the scoring scripts
-tools/fetch_upstream.sh
-conda create -p upstream/Foam-Agent/env python=3.12 pip     # Foam-Agent's own environment
-upstream/Foam-Agent/env/bin/pip install -e upstream/Foam-Agent sentence-transformers
+tools/fetch_upstream.sh                    # clones Foam-Agent and pulls its git-LFS database
+conda create -p upstream/Foam-Agent/env python=3.12 pip git-lfs -c conda-forge
+upstream/Foam-Agent/env/bin/pip install -e "upstream/Foam-Agent[all]" sentence-transformers
 ```
+
+Two things about Foam-Agent's setup are easy to miss. Its pre-built RAG database (FAISS
+indices over the full OpenFOAM tutorial set) is stored in git-LFS, so a clone without
+`git lfs pull` holds pointer files that look like a database but are not;
+`run_benchmarks.py` checks for this and refuses to rebuild from whatever tutorials happen
+to be on the machine. And `src/utils.py` imports the Bedrock and Ollama clients
+unconditionally, so the `[all]` extras are required even though only one provider is
+used.
 
 Regenerate the corrected JSONs from the untouched originals (optional; the v1 JSONs are
 committed, so a user who only wants to run the benchmark can skip this step):
