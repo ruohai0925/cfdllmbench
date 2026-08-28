@@ -1,10 +1,29 @@
-"""Generate FoamBench v1 datasets from the unmodified Kaggle originals.
+"""Generate the corrected FoamBench v1 datasets from the unmodified Kaggle originals.
 
-Fixes cases where the usr_requirement and GT disagree (see docs/AUDIT_requirement_vs_GT.md).
-Policy "A": edit the requirement text so it fully specifies what the GT does; GT solver
-settings are untouched, only dead template files that GT never reads are removed.
+    python Dataset/unpack_v1.py      # then unpack to Dataset/{Basic,Advanced}/<case>/GT_Files
+    ./Dataset/run_gt.sh 12           # and run every case to completion
 
-    python Dataset/patch_v1.py   # writes FoamBench_basic_v1.json / FoamBench_advanced_v1.json
+104 of the 126 cases are corrected. Dataset/CHANGELOG.md documents every case in English and
+groups the defects into five classes; the functions below are named after those classes:
+
+    A  requirement text contradicts the GT      -> fix_cavity_turbulence_spec,
+                                                   fix_advanced_prompt_mismatches,
+                                                   fix_basic_prompt_mismatches,
+                                                   fix_advanced_bc_and_time_mismatches
+    B  GT contradicts the requirement text      -> fix_stale_sweep_variants (counterFlowFlame2D/9),
+                                                   fix_basic_prompt_mismatches (shallowWater bump)
+    C  GT internally contradictory / impossible -> fix_advanced_bc_and_time_mismatches
+                                                   (Rectangular_Obstacle_SA patch name),
+                                                   remove_dead_files_and_sa_wall (nuTilda wall BC),
+                                                   fix_oblique_shock_states
+    D  declared turbulence model has no effect  -> fix_inert_turbulence_models
+    E  files no tool reads                      -> remove_dead_files_and_sa_wall
+
+Both the originals and this script are kept so the corrections stay auditable: every edit asserts
+the original text first, so the patch fails loudly rather than silently mis-applying if the source
+changes. Editing the requirement is preferred when the GT was the side swept correctly, and the GT
+is edited when it was not (counterFlowFlame2D/9, shallowWaterWithSquareBump/2-10) or when it is
+internally wrong (classes C and D). Cases whose GT changed must have their reference fields re-run.
 """
 import json, os, hashlib, re
 
@@ -22,7 +41,7 @@ CAVITY_DEAD_FILES = ["0/omega", "0/nuTilda"]  # kEpsilon never reads these; temp
 KOMEGASST_CASES = ["Diamond_Obstacle_KOMEGASST", "Rectangular_Obstacle_KOMEGASST"]
 
 
-def patch_stale_variants(d, log):
+def fix_stale_sweep_variants(d, log):
     """Generator-script slips: one side of a variant was swept, the other stayed at the template."""
     # obliqueShock/8: GT was swept (inlet 4.0, top 3.5) but the prose kept template velocities.
     v = d["obliqueShock/8"]
@@ -61,7 +80,7 @@ def md5(p):
     return hashlib.md5(open(p, "rb").read()).hexdigest()
 
 
-def patch_basic(d, log):
+def fix_cavity_turbulence_spec(d, log):
     for i in range(1, 11):
         k = f"Cavity/{i}"
         v = d[k]
@@ -70,10 +89,10 @@ def patch_basic(d, log):
         v["usr_requirement"] = v["usr_requirement"].rstrip() + CAVITY_TURB_SENTENCE
         removed = [f for f in CAVITY_DEAD_FILES if v.pop(f, None) is not None]
         log.append(f"{k}: appended k-epsilon sentence to usr_requirement; removed {removed}")
-    return patch_stale_variants(d, log)
+    return fix_stale_sweep_variants(d, log)
 
 
-def patch_advanced(d, log):
+def fix_advanced_prompt_mismatches(d, log):
     for k in KOMEGASST_CASES:
         v = d[k]
         assert "RASModel        kOmegaSST" in v["constant/turbulenceProperties"], k
@@ -98,7 +117,7 @@ P_OUTLET_NEW_ADV = ("The right boundary is the outlet, with fixed-value pressure
                     "and a pressureInletOutletVelocity condition for velocity.")
 
 
-def patch_round2_basic(d, log):
+def fix_basic_prompt_mismatches(d, log):
     # forwardStep/1: prose 3 m/s, GT 0/U 4 m/s (variants 2-10 are 1.1..2.7 and agree with GT).
     v = d["forwardStep/1"]
     assert "uniform (4 0 0)" in v["0/U"] and v["usr_requirement"].count("fixed velocity of 3m/s") == 1
@@ -150,7 +169,7 @@ def patch_round2_basic(d, log):
     return d
 
 
-def patch_round2_advanced(d, log):
+def fix_advanced_bc_and_time_mismatches(d, log):
     # Cylinder_LES / Cylinder_SA: same outlet-pressure wording issue as Basic Cylinder.
     for k in ("Cylinder_LES", "Cylinder_SA"):
         v = d[k]
@@ -180,8 +199,8 @@ def patch_round2_advanced(d, log):
     return d
 
 
-def patch_round3(d, split, log):
-    """Remove GT files proven dead, and fix nuTilda wall BCs in the SA obstacle cases.
+def remove_dead_files_and_sa_wall(d, split, log):
+    """Class E (dead files) and one class C fix (the Spalart-Allmaras wall condition).
 
     The dead-file list in Dataset/dead_files_v1.json was produced empirically: every listed
     file was deleted, the case re-run under OpenFOAM 10, and the end-time results compared
@@ -233,7 +252,7 @@ def _set_patch(field, patch, body):
     return pat.sub(lambda m: m.group(1) + body + m.group(3), field, count=1)
 
 
-def patch_physics_basic(d, log):
+def fix_oblique_shock_states(d, log):
     # obliqueShock/2,6,9,10: the prescribed top state is not a possible post-shock state for the
     # case's own inlet (2 accelerates and heats, 6 accelerates and cools, 9 and 10 never compress).
     # Recompute it from the exact oblique-shock relations, keeping each variant distinct.
@@ -256,7 +275,7 @@ def patch_physics_basic(d, log):
     return d
 
 
-def patch_physics_advanced(d, log):
+def fix_inert_turbulence_models(d, log):
     # Spalart-Allmaras cases whose nuTilda was zero everywhere: SA has an exact fixed point at
     # nuTilda=0, so the declared model produced literally nothing (verified: end-time nut == 0).
     # Give the freestream/inflow 3*nu and pin walls at 0, which is the standard SA setup.
@@ -300,15 +319,15 @@ def patch_physics_advanced(d, log):
 
 def main():
     log = []
-    for name, fn in [("basic", patch_basic), ("advanced", patch_advanced)]:
+    for name, fn in [("basic", fix_cavity_turbulence_spec), ("advanced", fix_advanced_prompt_mismatches)]:
         src = os.path.join(HERE, f"FoamBench_{name}.json")
         dst = os.path.join(HERE, f"FoamBench_{name}_v1.json")
         d = json.load(open(src, encoding="utf-8"))
         n_before = sum(len(v) for v in d.values())
         d = fn(d, log)
-        d = (patch_round2_basic if name == "basic" else patch_round2_advanced)(d, log)
-        d = patch_round3(d, name, log)
-        d = (patch_physics_basic if name == "basic" else patch_physics_advanced)(d, log)
+        d = (fix_basic_prompt_mismatches if name == "basic" else fix_advanced_bc_and_time_mismatches)(d, log)
+        d = remove_dead_files_and_sa_wall(d, name, log)
+        d = (fix_oblique_shock_states if name == "basic" else fix_inert_turbulence_models)(d, log)
         n_after = sum(len(v) for v in d.values())
         with open(dst, "w", encoding="utf-8") as f:
             json.dump(d, f, indent=2, ensure_ascii=False)
