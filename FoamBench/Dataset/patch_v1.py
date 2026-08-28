@@ -213,6 +213,91 @@ def patch_round3(d, split, log):
     return d
 
 
+SHOCK_FIX = {           # (top Ux, top Uy, top T); recomputed from exact oblique-shock relations
+    "2":  (2.39230, -0.72508, 1.43224),   # M1=2.900, beta=35 deg
+    "6":  (2.71903, -0.26830, 2.18900),   # M1=2.051, beta=34 deg (beta must exceed the 29.19 deg Mach angle;
+                                          # stronger angles diverge at this low supersonic Mach number)
+    "9":  (3.63320, -0.66173, 2.47240),   # M1=2.828, beta=29 deg
+    "10": (3.42789, -0.88097, 2.69470),   # M1=2.828, beta=33 deg (distinct from /9's 29 deg)
+}
+SA_NUTILDA = {          # freestream nuTilda = 3*nu (Spalart's recommendation); walls stay at 0
+    "Cavity_SA": 3e-05, "Cavity_geometry_1": 3e-05, "Cylinder_SA": 0.03, "nozzleFlow2D_SA": 1.7856e-05,
+}
+OBLIQUE_MU = 1.6646e-04  # rho*U*L/Re with rho=1.4, U=2.9, L=4.1, Re=1e5
+
+
+def _set_patch(field, patch, body):
+    """Replace the body of one boundaryField entry."""
+    pat = re.compile(r"(^\s*" + re.escape(patch) + r"\s*\n\s*\{)(.*?)(\n\s*\})", re.S | re.M)
+    assert pat.search(field), patch
+    return pat.sub(lambda m: m.group(1) + body + m.group(3), field, count=1)
+
+
+def patch_physics_basic(d, log):
+    # obliqueShock/2,6,9,10: the prescribed top state is not a possible post-shock state for the
+    # case's own inlet (2 accelerates and heats, 6 accelerates and cools, 9 and 10 never compress).
+    # Recompute it from the exact oblique-shock relations, keeping each variant distinct.
+    for i, (ux, uy, T2) in SHOCK_FIX.items():
+        v = d[f"obliqueShock/{i}"]
+        v["0/U"] = _set_patch(v["0/U"], "top", f"\n        type            fixedValue;\n        value           uniform ({ux} {uy} 0);")
+        v["0/T"] = _set_patch(v["0/T"], "top", f"\n        type            fixedValue;\n        value           uniform {T2};")
+        r = v["usr_requirement"]
+        r = re.sub(r"top velocity of \([^)]*\) m/s", f"top velocity of ({ux},{uy},0.0) m/s", r)
+        r = re.sub(r"top boundary temperat[a-z]*e of [\d.]+", f"top boundary temperature of {T2}", r)
+        v["usr_requirement"] = r
+        # The corrected (stronger) top state is only stable if the initial field matches the
+        # inflow: these variants shipped internalField U=(2.9 0 0), T=1 regardless of their own
+        # inlet, and /6 and /10 diverge (sqrt of a negative temperature) during that transient.
+        iU = re.search(r"inlet\s*\{[^}]*uniform\s*\(([^)]+)\)", v["0/U"], re.S).group(1)
+        iT = re.search(r"inlet\s*\{[^}]*uniform\s+([\d.eE+-]+)", v["0/T"], re.S).group(1)
+        v["0/U"] = re.sub(r"internalField\s+uniform\s*\([^)]*\);", f"internalField   uniform ({iU});", v["0/U"])
+        v["0/T"] = re.sub(r"internalField\s+uniform\s+[\d.eE+-]+;", f"internalField   uniform {iT};", v["0/T"])
+        log.append(f"obliqueShock/{i}: top state recomputed from oblique-shock relations -> U=({ux} {uy} 0), T={T2}; internalField synced to inlet U=({iU}) T={iT}; prose updated (GT must be re-run)")
+    return d
+
+
+def patch_physics_advanced(d, log):
+    # Spalart-Allmaras cases whose nuTilda was zero everywhere: SA has an exact fixed point at
+    # nuTilda=0, so the declared model produced literally nothing (verified: end-time nut == 0).
+    # Give the freestream/inflow 3*nu and pin walls at 0, which is the standard SA setup.
+    for case, nt in SA_NUTILDA.items():
+        v = d[case]
+        f = v["0/nuTilda"]
+        f = re.sub(r"internalField\s+uniform\s+[\d.eE+-]+;", f"internalField   uniform {nt};", f)
+        if case in ("Cavity_SA", "Cavity_geometry_1"):
+            for w in ("movingWall", "fixedWalls"):
+                f = _set_patch(f, w, "\n        type            fixedValue;\n        value           uniform 0;")
+        elif case == "Cylinder_SA":
+            f = _set_patch(f, "left", f"\n        type            fixedValue;\n        value           uniform {nt};")
+            f = _set_patch(f, "right", f"\n        type            inletOutlet;\n        inletValue      uniform {nt};\n        value           uniform {nt};")
+        elif case == "nozzleFlow2D_SA":
+            f = _set_patch(f, "inlet", f"\n        type            fixedValue;\n        value           uniform {nt};")
+            f = _set_patch(f, "walls", "\n        type            fixedValue;\n        value           uniform 0;")
+        v["0/nuTilda"] = f
+        log.append(f"{case}: 0/nuTilda freestream/inflow 0 -> {nt} (=3*nu), walls pinned at 0 so SA is actually active (GT must be re-run)")
+
+    # obliqueShock_KE / _LES: mu=0 makes rhoCentralFoam take its inviscid branch, so the declared
+    # turbulence model never reaches the momentum or energy equation. Give a viscosity for Re=1e5.
+    for case in ("obliqueShock_KE", "obliqueShock_LES"):
+        v = d[case]
+        pp = v["constant/physicalProperties"]
+        assert re.search(r"mu\s+0;", pp), case
+        v["constant/physicalProperties"] = re.sub(r"mu\s+0;", f"mu              {OBLIQUE_MU};", pp)
+        # With mu>0 rhoCentralFoam solves the energy equation implicitly. These cases use
+        # `energy sensibleInternalEnergy`, so the field is `e`, but fvSolution only defines a
+        # solver for `h` -- dead while the inviscid branch was taken, fatal once it is not.
+        fv = v["system/fvSolution"]
+        assert re.search(r"^\s*h\s*$", fv, re.M) and not re.search(r"^\s*e\s*$", fv, re.M), case
+        v["system/fvSolution"] = re.sub(r"^(\s*)h(\s*)$", r"\1e\2", fv, count=1, flags=re.M)
+        log.append(f"{case}: system/fvSolution solver 'h' -> 'e' (thermo uses sensibleInternalEnergy; needed once the viscous branch is active)")
+        r = v["usr_requirement"]
+        if "dynamic viscosity mu is 0" in r:
+            r = r.replace("dynamic viscosity mu is 0", f"dynamic viscosity mu is {OBLIQUE_MU}")
+        v["usr_requirement"] = r
+        log.append(f"{case}: mu 0 -> {OBLIQUE_MU} (Re=1e5) so the declared turbulence model enters the equations (GT must be re-run)")
+    return d
+
+
 def main():
     log = []
     for name, fn in [("basic", patch_basic), ("advanced", patch_advanced)]:
@@ -223,6 +308,7 @@ def main():
         d = fn(d, log)
         d = (patch_round2_basic if name == "basic" else patch_round2_advanced)(d, log)
         d = patch_round3(d, name, log)
+        d = (patch_physics_basic if name == "basic" else patch_physics_advanced)(d, log)
         n_after = sum(len(v) for v in d.values())
         with open(dst, "w", encoding="utf-8") as f:
             json.dump(d, f, indent=2, ensure_ascii=False)
