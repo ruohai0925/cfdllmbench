@@ -10,7 +10,9 @@ PKG = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(PKG)
 BASIC_ROOT = os.path.join(PKG, "Dataset", "Basic")
 ADVANCED_ROOT = os.path.join(PKG, "Dataset", "Advanced")
-META_ROOT = os.path.join(REPO, "algorithm", "MetaOpenFOAM")
+# The framework under test lives outside this package (it has its own git repo).
+# Default to the sibling upstream checkout; override with $METAOPENFOAM_ROOT.
+META_ROOT = os.environ.get("METAOPENFOAM_ROOT") or os.path.join(PKG, "upstream", "MetaOpenFOAM")
 SRC_DIR = os.path.join(META_ROOT, "src")
 PYTHON = "python"
 # OpenFOAM 10 is the evaluation environment; override with $WM_PROJECT_DIR if installed
@@ -94,6 +96,12 @@ if __name__ == "__main__":
     parser.add_argument('--mode', type=str, choices=['basic', 'advanced', 'all'], default='all',
                         help='Which group of cases to run')
     args = parser.parse_args()
+
+    if not os.path.isdir(SRC_DIR):
+        raise SystemExit(
+            f"MetaOpenFOAM not found at {META_ROOT}\n"
+            f"Clone it (git clone https://github.com/Terry-cyx/MetaOpenFOAM.git) and set "
+            f"$METAOPENFOAM_ROOT to its directory.")
 
     print(f"Running CFD workflow for: {args.mode.upper()}")
     if args.mode in ('basic', 'all'):

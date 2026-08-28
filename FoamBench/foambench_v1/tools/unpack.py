@@ -19,7 +19,8 @@ import argparse, json, os, stat
 HERE = os.path.dirname(os.path.abspath(__file__))
 PKG = os.path.dirname(HERE)                                  # foambench_v1/
 DATASET = os.path.join(PKG, "Dataset")                       # our corrected data
-UPSTREAM = os.path.join(os.path.dirname(PKG), "Dataset")     # unmodified Kaggle JSONs
+# --original reads the unmodified Kaggle JSONs, the one input outside this package.
+UPSTREAM = os.environ.get("FOAMBENCH_UPSTREAM") or os.path.join(PKG, "upstream")
 
 
 def yaml_quote(s):
@@ -78,6 +79,7 @@ def unpack(json_path, out_root, split, cfg):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--original", action="store_true", help="unpack the unmodified Kaggle JSONs instead of v1")
+    ap.add_argument("--upstream", default=UPSTREAM, help="where the unmodified Kaggle JSONs live (only used with --original)")
     ap.add_argument("--out", default=DATASET, help="where to unpack (default: foambench_v1/Dataset)")
     ap.add_argument("--no-yaml", dest="yaml", action="store_false", help="do not emit the MetaOpenFOAM case YAML")
     ap.add_argument("--force-yaml", action="store_true", help="overwrite an existing case YAML")
@@ -103,7 +105,7 @@ def main():
               "the YAML gets an empty OPENAI_API_KEY and MetaOpenFOAM will not authenticate.")
 
     suffix = "" if args.original else "_v1"
-    src_dir = UPSTREAM if args.original else DATASET
+    src_dir = args.upstream if args.original else DATASET
     out_root = args.out
     unpack(os.path.join(src_dir, f"FoamBench_basic{suffix}.json"), out_root, "Basic", cfg)
     unpack(os.path.join(src_dir, f"FoamBench_advanced{suffix}.json"), out_root, "Advanced", cfg)

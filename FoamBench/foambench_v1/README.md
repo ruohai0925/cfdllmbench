@@ -6,6 +6,10 @@ directory (`../Dataset/FoamBench_*.json`, `../read_json_*.py`, `../run_benchmark
 `../score_calculation.py`) are kept **unmodified**, so the difference between the
 published benchmark and the one we run is exactly the contents of this directory.
 
+This directory is self-contained: take it on its own, run `tools/fetch_upstream.sh` to
+pull in the two things that live outside it, and everything works. Every tool resolves
+its paths relative to this directory rather than the caller's working directory.
+
 ## Layout
 
 ```
@@ -19,6 +23,7 @@ foambench_v1/
   tools/
     patch_dataset.py        regenerates the v1 JSONs from the untouched upstream JSONs
     unpack.py               unpacks v1 into Dataset/{Basic,Advanced} + per-case YAML
+    fetch_upstream.sh       pulls the Kaggle originals and MetaOpenFOAM into upstream/
     run_gt.sh               runs every GT case under OpenFOAM 10
     run_benchmarks.py       drives MetaOpenFOAM over all 126 cases
     execution_report.py     M_exec
@@ -28,6 +33,10 @@ foambench_v1/
   results/
     gt_run_summary.tsv      status / wall-clock / last written time for all 126 GT runs
     *.csv                   scoring output (generated; not tracked)
+  upstream/                 fetched, not tracked -- see tools/fetch_upstream.sh
+    FoamBench_basic.json    the unmodified Kaggle originals, needed only to
+    FoamBench_advanced.json re-derive the v1 data with patch_dataset.py
+    MetaOpenFOAM/           the framework under test (has its own git repo)
   docs/                     working notes, kept local only (not tracked)
 ```
 
@@ -52,8 +61,21 @@ re-run without the file and produced bit-identical results at the end time.
 
 ## Quickstart
 
-Regenerate the corrected JSONs from the untouched upstream ones (optional; the JSONs are
-committed):
+Set up OpenFOAM 10 and the Python dependencies, then fetch what lives outside this
+package. `fetch_upstream.sh` copies the Kaggle JSONs from a sibling upstream checkout if
+it finds one, otherwise it prints the download URL; it clones MetaOpenFOAM at `85aae62`,
+the last commit before the project was deprecated and moved to `svd-ai-lab/sim-cli`.
+
+```bash
+source /opt/openfoam10/etc/bashrc          # never source this under `set -u`
+export WM_PROJECT_DIR=/opt/openfoam10
+pip install pandas pyvista rouge-score pyyaml
+tools/fetch_upstream.sh
+```
+
+Regenerate the corrected JSONs from the untouched originals (optional; the v1 JSONs are
+committed, so a user who only wants to run the benchmark can skip this and `upstream/`
+entirely):
 
 ```bash
 python tools/patch_dataset.py

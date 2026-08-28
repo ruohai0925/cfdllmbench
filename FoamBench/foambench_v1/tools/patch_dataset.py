@@ -1,9 +1,9 @@
 """Generate the corrected FoamBench v1 datasets from the unmodified Kaggle originals.
 
-    python Dataset/unpack_v1.py      # then unpack to Dataset/{Basic,Advanced}/<case>/GT_Files
-    ./Dataset/run_gt.sh 12           # and run every case to completion
+    python tools/unpack.py      # then unpack to Dataset/{Basic,Advanced}/<case>/GT_Files
+    tools/run_gt.sh 12           # and run every case to completion
 
-104 of the 126 cases are corrected. Dataset/CHANGELOG.md documents every case in English and
+104 of the 126 cases are corrected. CHANGELOG.md documents every case in English and
 groups the defects into five classes; the functions below are named after those classes:
 
     A  requirement text contradicts the GT      -> fix_cavity_turbulence_spec,
@@ -25,12 +25,15 @@ changes. Editing the requirement is preferred when the GT was the side swept cor
 is edited when it was not (counterFlowFlame2D/9, shallowWaterWithSquareBump/2-10) or when it is
 internally wrong (classes C and D). Cases whose GT changed must have their reference fields re-run.
 """
-import json, os, hashlib, re
+import argparse, json, os, hashlib, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PKG = os.path.dirname(HERE)                                  # foambench_v1/
 DATASET = os.path.join(PKG, "Dataset")                       # our corrected data
-UPSTREAM = os.path.join(os.path.dirname(PKG), "Dataset")     # unmodified Kaggle JSONs
+# The unmodified Kaggle JSONs are the one input that lives outside this package.
+# Default to the sibling upstream checkout; override with --upstream or $FOAMBENCH_UPSTREAM.
+UPSTREAM = os.environ.get("FOAMBENCH_UPSTREAM") or os.path.join(PKG, "upstream")
+KAGGLE = "https://www.kaggle.com/datasets/nithinsekhar/foambench/data"
 
 CAVITY_TURB_SENTENCE = (
     " Model turbulence with the standard k-epsilon RAS model (simulationType RAS, "
@@ -321,9 +324,20 @@ def fix_inert_turbulence_models(d, log):
 
 
 def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--upstream", default=UPSTREAM,
+                    help="directory holding the unmodified FoamBench_{basic,advanced}.json "
+                         "(default: ../Dataset, or $FOAMBENCH_UPSTREAM)")
+    upstream = ap.parse_args().upstream
+
     log = []
     for name, fn in [("basic", fix_cavity_turbulence_spec), ("advanced", fix_advanced_prompt_mismatches)]:
-        src = os.path.join(UPSTREAM, f"FoamBench_{name}.json")
+        src = os.path.join(upstream, f"FoamBench_{name}.json")
+        if not os.path.exists(src):
+            raise SystemExit(
+                f"upstream JSON not found: {src}\n"
+                f"Download FoamBench_basic.json and FoamBench_advanced.json from\n  {KAGGLE}\n"
+                f"then pass --upstream <dir> (or set $FOAMBENCH_UPSTREAM).")
         dst = os.path.join(DATASET, f"FoamBench_{name}_v1.json")
         d = json.load(open(src, encoding="utf-8"))
         n_before = sum(len(v) for v in d.values())

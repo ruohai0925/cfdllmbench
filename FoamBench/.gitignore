@@ -19,3 +19,7 @@ algorithm/MetaOpenFOAM/
 # Python
 __pycache__/
 *.pyc
+
+# Fetched from outside the package: unmodified Kaggle JSONs + the framework
+# under test. Regenerate with: foambench_v1/tools/fetch_upstream.sh
+foambench_v1/upstream/
