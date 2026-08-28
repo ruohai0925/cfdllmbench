@@ -22,6 +22,41 @@ CAVITY_DEAD_FILES = ["0/omega", "0/nuTilda"]  # kEpsilon never reads these; temp
 KOMEGASST_CASES = ["Diamond_Obstacle_KOMEGASST", "Rectangular_Obstacle_KOMEGASST"]
 
 
+def patch_stale_variants(d, log):
+    """Generator-script slips: one side of a variant was swept, the other stayed at the template."""
+    # obliqueShock/8: GT was swept (inlet 4.0, top 3.5) but the prose kept template velocities.
+    v = d["obliqueShock/8"]
+    assert "uniform (4.0 0 0)" in v["0/U"] and "uniform (3.5 -0.50632 0)" in v["0/U"], "obliqueShock/8 GT"
+    old = "Use inlet velocity of 2.9 m/s and top velocity of (2.61933,-0.50632,0.0) m/s."
+    assert old in v["usr_requirement"], "obliqueShock/8 req"
+    v["usr_requirement"] = v["usr_requirement"].replace(
+        old, "Use inlet velocity of 4.0 m/s and top velocity of (3.5,-0.50632,0.0) m/s.")
+    log.append("obliqueShock/8: usr_requirement velocities 2.9/(2.61933,..) -> 4.0/(3.5,..) to match GT 0/U")
+
+    # counterFlowFlame2D/9: prose was swept (0.4 / -0.3) but GT is a byte-identical copy of variant 1.
+    # Policy A (edit prose) would make /9 a duplicate of /1, so here the GT 0/U is edited instead.
+    v = d["counterFlowFlame2D/9"]
+    assert "velocity of fuel is 0.4 m/s and velocity of air is -0.3 m/s" in v["usr_requirement"]
+    assert {k: x for k, x in v.items() if k != "usr_requirement"} == \
+           {k: x for k, x in d["counterFlowFlame2D/1"].items() if k != "usr_requirement"}, "cff/9 GT != cff/1 GT"
+    u = v["0/U"]
+    assert u.count("uniform (0.1 0 0)") == 1 and u.count("uniform (-0.1 0 0)") == 1
+    v["0/U"] = u.replace("uniform (0.1 0 0)", "uniform (0.4 0 0)").replace("uniform (-0.1 0 0)", "uniform (-0.3 0 0)")
+    log.append("counterFlowFlame2D/9: GT 0/U fuel/air 0.1/-0.1 -> 0.4/-0.3 to match usr_requirement (GT edit; reference fields must be re-run)")
+
+    # wedge/7,8,10: GT Pr was swept (0.71 / 0.71 / 1.5) but every prose still says "Pr is 1".
+    # mu = 0 (inviscid) so Pr does not affect the solution; this only fixes the wording / ROUGE on physicalProperties.
+    import re
+    for i in (7, 8, 10):
+        v = d[f"wedge/{i}"]
+        pr = re.search(r"Pr\s+([\d.]+);", v["constant/physicalProperties"]).group(1)
+        assert pr in ("0.71", "1.5"), (i, pr)
+        assert v["usr_requirement"].count("Pr is 1.") == 1, i
+        v["usr_requirement"] = v["usr_requirement"].replace("Pr is 1.", f"Pr is {pr}.")
+        log.append(f"wedge/{i}: usr_requirement 'Pr is 1' -> 'Pr is {pr}' to match GT physicalProperties")
+    return d
+
+
 def md5(p):
     return hashlib.md5(open(p, "rb").read()).hexdigest()
 
@@ -35,7 +70,7 @@ def patch_basic(d, log):
         v["usr_requirement"] = v["usr_requirement"].rstrip() + CAVITY_TURB_SENTENCE
         removed = [f for f in CAVITY_DEAD_FILES if v.pop(f, None) is not None]
         log.append(f"{k}: appended k-epsilon sentence to usr_requirement; removed {removed}")
-    return d
+    return patch_stale_variants(d, log)
 
 
 def patch_advanced(d, log):
