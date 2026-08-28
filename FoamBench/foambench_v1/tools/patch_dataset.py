@@ -28,6 +28,9 @@ internally wrong (classes C and D). Cases whose GT changed must have their refer
 import json, os, hashlib, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PKG = os.path.dirname(HERE)                                  # foambench_v1/
+DATASET = os.path.join(PKG, "Dataset")                       # our corrected data
+UPSTREAM = os.path.join(os.path.dirname(PKG), "Dataset")     # unmodified Kaggle JSONs
 
 CAVITY_TURB_SENTENCE = (
     " Model turbulence with the standard k-epsilon RAS model (simulationType RAS, "
@@ -208,7 +211,7 @@ def remove_dead_files_and_sa_wall(d, split, log):
     none of them can influence the solution. They only cost structure score, because
     similarity_report.py grades a submission against the GT file list.
     """
-    dead = json.load(open(os.path.join(HERE, "dead_files_v1.json"), encoding="utf-8"))[split.capitalize()]
+    dead = json.load(open(os.path.join(DATASET, "dead_files_v1.json"), encoding="utf-8"))[split.capitalize()]
     n = 0
     for case, files in dead.items():
         v = d[case]
@@ -320,8 +323,8 @@ def fix_inert_turbulence_models(d, log):
 def main():
     log = []
     for name, fn in [("basic", fix_cavity_turbulence_spec), ("advanced", fix_advanced_prompt_mismatches)]:
-        src = os.path.join(HERE, f"FoamBench_{name}.json")
-        dst = os.path.join(HERE, f"FoamBench_{name}_v1.json")
+        src = os.path.join(UPSTREAM, f"FoamBench_{name}.json")
+        dst = os.path.join(DATASET, f"FoamBench_{name}_v1.json")
         d = json.load(open(src, encoding="utf-8"))
         n_before = sum(len(v) for v in d.values())
         d = fn(d, log)

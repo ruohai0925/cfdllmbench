@@ -2,14 +2,23 @@ import os
 import csv
 from rouge_score import rouge_scorer
 
-BASE_DIR = "Dataset"
+# Paths resolve against the foambench_v1/ package, not the caller's cwd,
+# so these tools can be run from anywhere.
+PKG = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATASET = os.path.join(PKG, "Dataset")
+RESULTS = os.path.join(PKG, "results")
+os.makedirs(RESULTS, exist_ok=True)
+
+BASE_DIR = DATASET
 SUBDIRS = ["0", "constant", "system"]
 
 def read_cleaned_code(path):
+    # Fields written in binary format are not valid UTF-8; decode leniently rather than
+    # silently returning "" (which used to make a byte-identical file score 0).
     try:
-        with open(path, "r") as f:
+        with open(path, "r", errors="replace") as f:
             lines = f.readlines()
-    except:
+    except OSError:
         return ""
 
     filtered_lines = [line for line in lines if not line.strip().startswith(("//", "/*", "*"))]
@@ -36,6 +45,10 @@ def get_all_files(base_path):
 def compute_rouge_score(gt_file, llm_file):
     gt_code = read_cleaned_code(gt_file)
     llm_code = read_cleaned_code(llm_file)
+    # A file reproduced exactly must score 1.0. Binary fields and 0-byte files clean to an
+    # empty string, and the old "empty -> 0.0" rule scored them 0 even when identical.
+    if gt_code == llm_code:
+        return 1.0
     if not gt_code or not llm_code:
         return 0.0
     try:
@@ -67,7 +80,7 @@ def compare_dir_pair(gt_dir, llm_dir):
     return codebleu_score, tree_score
 
 def process_basic():
-    output_file = "similarity_report_basic.csv"
+    output_file = os.path.join(RESULTS, "similarity_report_basic.csv")
     with open(output_file, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(["Dataset", "Directory", "CodeBLEU", "TreeScore"])
@@ -93,11 +106,17 @@ def process_basic():
                 for sub in SUBDIRS:
                     gt_sub = os.path.join(gt_dir, sub)
                     llm_sub = os.path.join(run_path, sub)
-                    if os.path.exists(gt_sub) and os.path.exists(llm_sub):
+                    if not os.path.exists(gt_sub):
+                        continue          # the GT has nothing to compare against
+                    # A sub-directory the GT has must always be scored: if the submission
+                    # omits it entirely that is 0, not an excuse to drop it from the mean.
+                    if os.path.exists(llm_sub):
                         rogue, tree = compare_dir_pair(gt_sub, llm_sub)
-                        total_rogue += rogue
-                        total_tree += tree
-                        count += 1
+                    else:
+                        rogue, tree = 0.0, 0.0
+                    total_rogue += rogue
+                    total_tree += tree
+                    count += 1
 
                 if count > 0:
                     writer.writerow([dataset, i,
@@ -105,7 +124,7 @@ def process_basic():
                                      round(total_tree / count, 4)])
 
 def process_advanced():
-    output_file = "similarity_report_advanced.csv"
+    output_file = os.path.join(RESULTS, "similarity_report_advanced.csv")
     with open(output_file, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(["Dataset", "Directory", "CodeBLEU", "TreeScore"])
@@ -131,11 +150,17 @@ def process_advanced():
             for sub in SUBDIRS:
                 gt_sub = os.path.join(gt_dir, sub)
                 llm_sub = os.path.join(run_path, sub)
-                if os.path.exists(gt_sub) and os.path.exists(llm_sub):
+                if not os.path.exists(gt_sub):
+                    continue              # the GT has nothing to compare against
+                # A sub-directory the GT has must always be scored: if the submission
+                # omits it entirely that is 0, not an excuse to drop it from the mean.
+                if os.path.exists(llm_sub):
                     rogue, tree = compare_dir_pair(gt_sub, llm_sub)
-                    total_rogue += rogue
-                    total_tree += tree
-                    count += 1
+                else:
+                    rogue, tree = 0.0, 0.0
+                total_rogue += rogue
+                total_tree += tree
+                count += 1
 
             if count > 0:
                 writer.writerow([dataset, 1,

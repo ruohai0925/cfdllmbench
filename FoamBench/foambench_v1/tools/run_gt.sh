@@ -1,11 +1,11 @@
 #!/bin/bash
 # Run every unpacked GT case to completion under OpenFOAM 10.
-#   Dataset/run_gt.sh [parallelism]     (default 12)
-# Each case runs its own Allrun in Dataset/{Basic,Advanced}/**/GT_Files.
+#   foambench_v1/tools/run_gt.sh [parallelism]     (default 12)
+# Each case runs its own Allrun in foambench_v1/Dataset/{Basic,Advanced}/**/GT_Files.
 # Results (time directories + log.*) stay in place for the NMSE step.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 JOBS="${1:-12}"
-SUMMARY="$ROOT/Dataset/gt_run_summary.tsv"
+SUMMARY="$ROOT/results/gt_run_summary.tsv"
 
 # NB: OpenFOAM's bashrc references unset variables -- never run it under `set -u`.
 FOAM_BASHRC="${FOAM_BASHRC:-/opt/openfoam10/etc/bashrc}"
