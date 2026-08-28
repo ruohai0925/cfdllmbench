@@ -31,7 +31,7 @@ else
 fi
 
 echo
-echo "Next: create Foam-Agent's conda environment, then build its RAG database once."
-echo "  conda env create -f $UP/Foam-Agent/environment.yml"
+echo "Next: create Foam-Agent's environment (its pyproject deps suffice), then run one case."
+echo "  conda create -p $UP/Foam-Agent/env python=3.12 pip && $UP/Foam-Agent/env/bin/pip install -e $UP/Foam-Agent sentence-transformers"
 echo "  python $PKG/tools/run_benchmarks.py --only Basic/Cavity/1"
 echo "upstream/ ready at $UP"

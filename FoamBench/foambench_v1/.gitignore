@@ -19,6 +19,3 @@ results/*.csv
 
 __pycache__/
 *.pyc
-
-# Anything provider-specific that ever needs to live here stays local.
-llm_gateway/

@@ -85,7 +85,8 @@ source /opt/openfoam10/etc/bashrc          # never source this under `set -u`
 export WM_PROJECT_DIR=/opt/openfoam10
 pip install pandas pyvista rouge-score     # for the scoring scripts
 tools/fetch_upstream.sh
-conda env create -f upstream/Foam-Agent/environment.yml   # Foam-Agent's own environment
+conda create -p upstream/Foam-Agent/env python=3.12 pip     # Foam-Agent's own environment
+upstream/Foam-Agent/env/bin/pip install -e upstream/Foam-Agent sentence-transformers
 ```
 
 Regenerate the corrected JSONs from the untouched originals (optional; the v1 JSONs are
