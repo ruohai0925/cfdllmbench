@@ -186,6 +186,24 @@ def usage_limit_hit(case_dir):
     return int(m.group(1)) if m else int(time.time()) + 3600
 
 
+# Provider-side failures that say nothing about the agent: a streamed response cut off,
+# a gateway error, a dropped connection. A case that died on one of these before doing
+# any review round is retried a bounded number of times rather than scored.
+TRANSIENT_MARKERS = ("Response ended prematurely", "IncompleteRead", "ChunkedEncodingError",
+                     "RemoteDisconnected", "Connection reset", "HTTP 502", "HTTP 503", "HTTP 504",
+                     "Connection aborted")
+TRANSIENT_RETRIES = 2
+
+
+def transient_provider_error(case_dir):
+    wf = os.path.join(case_dir, SUBMISSION, "workflow.log")
+    try:
+        txt = open(wf, errors="replace").read()
+    except OSError:
+        return False
+    return any(m in txt for m in TRANSIENT_MARKERS)
+
+
 def wait_for_usage_reset(resets_at):
     while True:
         remaining = resets_at + 60 - time.time()
@@ -260,14 +278,24 @@ def main():
     failed = []
     for i, (label, case_dir) in enumerate(cases, 1):
         print(f"\n[{i}/{len(cases)}] {label}", flush=True)
+        retries = 0
         while True:
             status, seconds = run_case(case_dir, args.case_timeout)
-            resets_at = usage_limit_hit(case_dir) if status == "failed" else None
-            if resets_at is None:
+            if status != "failed":
                 break
-            # Not a result: the provider refused to serve. Discard and retry after the reset.
-            shutil.rmtree(os.path.join(case_dir, SUBMISSION), ignore_errors=True)
-            wait_for_usage_reset(resets_at)
+            resets_at = usage_limit_hit(case_dir)
+            if resets_at is not None:
+                # Not a result: the provider refused to serve. Discard and retry after the reset.
+                shutil.rmtree(os.path.join(case_dir, SUBMISSION), ignore_errors=True)
+                wait_for_usage_reset(resets_at)
+                continue
+            if transient_provider_error(case_dir) and retries < TRANSIENT_RETRIES:
+                retries += 1
+                print(f"  transient provider error; retry {retries}/{TRANSIENT_RETRIES}", flush=True)
+                shutil.rmtree(os.path.join(case_dir, SUBMISSION), ignore_errors=True)
+                time.sleep(60)
+                continue
+            break
         record(label, status, seconds)
         print(f"  -> {status} in {seconds} s", flush=True)
         if status != "ok":
