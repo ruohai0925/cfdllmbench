@@ -139,6 +139,29 @@ def collect_cases(mode):
     return cases
 
 
+def kill_processes_under(directory):
+    """Kill every process whose working directory lies under `directory`. Foam-Agent's
+    runner starts Allrun in a session of its own, so killing the case's process group
+    leaves the solver behind; four reactingFoam orphans were found running 14-16 h
+    after their cases had been timed out. Returns the pids killed."""
+    directory = os.path.realpath(directory)
+    killed = []
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            cwd = os.path.realpath(os.readlink(f"/proc/{pid}/cwd"))
+        except OSError:
+            continue
+        if cwd == directory or cwd.startswith(directory + os.sep):
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+                killed.append(int(pid))
+            except OSError:
+                pass
+    return killed
+
+
 def run_case(case_dir, timeout):
     """Run one case; returns (status, seconds). status is 'ok', 'failed' or 'timeout'.
     The framework spawns python -> Allrun -> solver, so it is started in its own process
@@ -164,6 +187,10 @@ def run_case(case_dir, timeout):
             os.killpg(proc.pid, signal.SIGKILL)
             proc.wait()
         status = "timeout"
+        stray = kill_processes_under(out)
+        if stray:
+            print(f"  killed {len(stray)} stray process(es) still running in the case "
+                  f"directory: {stray}", flush=True)
         os.makedirs(out, exist_ok=True)
         with open(os.path.join(out, "TIMEOUT"), "w") as f:
             f.write(f"killed after {timeout} s wall-clock (per-case cap of run_benchmarks.py)\n")
