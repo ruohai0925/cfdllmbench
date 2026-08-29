@@ -19,6 +19,8 @@ The RAG database is built once by Foam-Agent's own init_database.py, not per cas
 """
 import argparse
 import os
+import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -169,6 +171,32 @@ def run_case(case_dir, timeout):
     return status, int(time.time() - t0)
 
 
+def usage_limit_hit(case_dir):
+    """If the framework died on the provider's usage limit, return the epoch time at which
+    it resets (or now+1h when it did not say). Such a case produced no result: the
+    submission directory is removed so the case is retried, not scored."""
+    wf = os.path.join(case_dir, SUBMISSION, "workflow.log")
+    try:
+        txt = open(wf, errors="replace").read()
+    except OSError:
+        return None
+    if "usage_limit_reached" not in txt:
+        return None
+    m = re.search(r'"resets_at":\s*(\d+)', txt)
+    return int(m.group(1)) if m else int(time.time()) + 3600
+
+
+def wait_for_usage_reset(resets_at):
+    while True:
+        remaining = resets_at + 60 - time.time()
+        if remaining <= 0:
+            return
+        print(f"  provider usage limit reached; sleeping until "
+              f"{time.strftime('%Y-%m-%d %H:%M', time.localtime(resets_at + 60))} "
+              f"({int(remaining // 60)} min)", flush=True)
+        time.sleep(min(remaining, 600))
+
+
 def record(label, status, seconds):
     os.makedirs(RESULTS, exist_ok=True)
     new = not os.path.exists(RUN_SUMMARY)
@@ -232,7 +260,14 @@ def main():
     failed = []
     for i, (label, case_dir) in enumerate(cases, 1):
         print(f"\n[{i}/{len(cases)}] {label}", flush=True)
-        status, seconds = run_case(case_dir, args.case_timeout)
+        while True:
+            status, seconds = run_case(case_dir, args.case_timeout)
+            resets_at = usage_limit_hit(case_dir) if status == "failed" else None
+            if resets_at is None:
+                break
+            # Not a result: the provider refused to serve. Discard and retry after the reset.
+            shutil.rmtree(os.path.join(case_dir, SUBMISSION), ignore_errors=True)
+            wait_for_usage_reset(resets_at)
         record(label, status, seconds)
         print(f"  -> {status} in {seconds} s", flush=True)
         if status != "ok":
