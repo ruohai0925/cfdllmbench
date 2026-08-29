@@ -19,8 +19,10 @@ The RAG database is built once by Foam-Agent's own init_database.py, not per cas
 """
 import argparse
 import os
+import signal
 import subprocess
 import sys
+import time
 
 # Paths resolve against the foambench_v1/ package, not the caller's cwd.
 PKG = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,6 +40,13 @@ SUBMISSION = "foam_agent_run"
 # gpt-5.3-codex, is refused by the subscription backend ("not supported when using
 # Codex with a ChatGPT account"); gpt-5.6-sol is accepted.
 DEFAULT_MODEL = "gpt-5.6-sol"
+# Wall-clock cap per case. Foam-Agent's own limits are max_loop=25 review iterations and
+# max_time_limit=3600 s per solver run, neither overridable from the environment, so a
+# case that keeps producing a non-terminating solver setup can occupy the machine for a
+# day. Past the cap the whole process tree is killed and the case is recorded as failed.
+DEFAULT_CASE_TIMEOUT = 2 * 3600
+RESULTS = os.path.join(PKG, "results")
+RUN_SUMMARY = os.path.join(RESULTS, "foam_agent_run_summary.tsv")
 
 
 def agent_python():
@@ -125,13 +134,45 @@ def collect_cases(mode):
     return cases
 
 
-def run_case(case_dir):
+def run_case(case_dir, timeout):
+    """Run one case; returns (status, seconds). status is 'ok', 'failed' or 'timeout'.
+    The framework spawns python -> Allrun -> solver, so it is started in its own process
+    group and the whole group is killed on timeout."""
     out = os.path.join(case_dir, SUBMISSION)
     cmd = [agent_python(), "-u", os.path.join(AGENT_ROOT, "foambench_main.py"),
            "--openfoam_path", OPENFOAM_DIR,
            "--output", out,
            "--prompt_path", os.path.join(case_dir, "usr_requirement.txt")]
-    return run(cmd, AGENT_ROOT)
+    print("  $ " + " ".join(cmd), flush=True)
+    t0 = time.time()
+    proc = subprocess.Popen(cmd, cwd=AGENT_ROOT, env=agent_env(), start_new_session=True)
+    try:
+        rc = proc.wait(timeout=timeout)
+        status = "ok" if rc == 0 else "failed"
+        if rc != 0:
+            print(f"  failed: exit status {rc}", flush=True)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGTERM)
+        try:
+            proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+        status = "timeout"
+        os.makedirs(out, exist_ok=True)
+        with open(os.path.join(out, "TIMEOUT"), "w") as f:
+            f.write(f"killed after {timeout} s wall-clock (per-case cap of run_benchmarks.py)\n")
+        print(f"  timeout: killed after {timeout} s; case recorded as failed", flush=True)
+    return status, int(time.time() - t0)
+
+
+def record(label, status, seconds):
+    os.makedirs(RESULTS, exist_ok=True)
+    new = not os.path.exists(RUN_SUMMARY)
+    with open(RUN_SUMMARY, "a") as f:
+        if new:
+            f.write("case\tstatus\tseconds\tfinished_at\n")
+        f.write(f"{label}\t{status}\t{seconds}\t{time.strftime('%Y-%m-%dT%H:%M:%S')}\n")
 
 
 def main():
@@ -148,6 +189,9 @@ def main():
                     help="do not touch the RAG database at all")
     ap.add_argument("--skip-done", action="store_true",
                     help="skip cases that already have a submission directory")
+    ap.add_argument("--case-timeout", type=int, default=DEFAULT_CASE_TIMEOUT, metavar="SECONDS",
+                    help=f"wall-clock cap per case (default {DEFAULT_CASE_TIMEOUT}); "
+                         f"on expiry the case is killed and recorded as failed")
     args = ap.parse_args()
 
     if not os.path.isfile(os.path.join(AGENT_ROOT, "foambench_main.py")):
@@ -176,7 +220,8 @@ def main():
     e = agent_env()
     print(f"model      : {e.get('FOAMAGENT_MODEL_PROVIDER', 'openai-codex (Foam-Agent default)')} / "
           f"{e['FOAMAGENT_MODEL_VERSION']}")
-    print(f"cases      : {len(cases)} ({args.mode})", flush=True)
+    print(f"cases      : {len(cases)} ({args.mode})")
+    print(f"case cap   : {args.case_timeout} s", flush=True)
 
     if not args.skip_db and not init_database(force=args.rebuild_db):
         raise SystemExit("RAG database build failed; aborting before any case runs")
@@ -184,8 +229,11 @@ def main():
     failed = []
     for i, (label, case_dir) in enumerate(cases, 1):
         print(f"\n[{i}/{len(cases)}] {label}", flush=True)
-        if not run_case(case_dir):
-            failed.append(label)
+        status, seconds = run_case(case_dir, args.case_timeout)
+        record(label, status, seconds)
+        print(f"  -> {status} in {seconds} s", flush=True)
+        if status != "ok":
+            failed.append(f"{label} ({status})")
 
     print(f"\n{len(cases) - len(failed)}/{len(cases)} cases completed", flush=True)
     if failed:
