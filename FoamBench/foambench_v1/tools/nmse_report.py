@@ -112,6 +112,10 @@ def process_all(base_dir, is_advanced=False):
             llm_dir = get_inner_run_folder(case_dir)
             if not gt_dir or not llm_dir or not os.path.exists(gt_dir) or not os.path.exists(llm_dir):
                 score = 9999
+            elif os.path.exists(os.path.join(llm_dir, "TIMEOUT")):
+                # Killed at the wall-clock cap: whatever fields exist were written by a
+                # solver that outlived the kill, not by the agent within the rules.
+                score = 9999
             else:
                 score = evaluate_nmse(gt_dir, llm_dir)
             records.append([dataset, i, score])

@@ -36,6 +36,12 @@ def analyze_basic_structure(base_dir):
             # os.walk already yields every directory including run_path itself, so scan
             # `files` here: the previous version only looked inside `dirs`, which missed a
             # solver log sitting directly in the run folder.
+            # A case the harness killed at its wall-clock cap is a failure whatever its
+            # directory holds afterwards: the solver Foam-Agent launched can outlive the
+            # kill and finish on its own hours later, leaving a log that ends with End.
+            if os.path.exists(os.path.join(run_path, "TIMEOUT")):
+                results.append([dataset, i, 0])
+                continue
             for root, dirs, files in os.walk(run_path):
                 for folder_path in [root]:
                     log_files = [f for f in files if f.startswith("log.") and f.endswith("Foam")]

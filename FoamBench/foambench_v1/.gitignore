@@ -14,8 +14,10 @@ upstream/*
 # Local only -- CHANGELOG.md is the authoritative record of every change.
 docs/
 
-# Scoring output (results/gt_run_summary.tsv is tracked)
+# Scoring output. The GT run summary, the Foam-Agent run summary, the per-case score
+# table and the final table are tracked; the intermediate per-metric CSVs are not.
 results/*.csv
+!results/final_benchmark_scores.csv
 
 __pycache__/
 *.pyc

@@ -1,0 +1,127 @@
+Split	Dataset	Directory	status	seconds	Execution	CodeBLEU	TreeScore	NMSE	NMSE_Score	Success
+Basic	pitzDaily	1	ok	248.0000	1	0.8445	1.0000	0.8895	0.0000	0
+Basic	pitzDaily	2	ok	288.0000	1	0.8230	1.0000	1.9471	0.0000	0
+Basic	pitzDaily	3	ok	410.0000	1	0.7943	1.0000	2.5631	0.0000	0
+Basic	pitzDaily	4	ok	463.0000	1	0.8420	1.0000	0.0066	1.0000	1
+Basic	pitzDaily	5	ok	278.0000	1	0.7972	1.0000	0.5573	0.0000	0
+Basic	pitzDaily	6	ok	342.0000	1	0.8158	1.0000	2.4564	0.0000	0
+Basic	pitzDaily	7	ok	299.0000	1	0.8220	1.0000	2.1153	0.0000	0
+Basic	pitzDaily	8	ok	436.0000	1	0.7888	1.0000	0.4732	0.0000	0
+Basic	pitzDaily	9	ok	316.0000	1	0.8111	1.0000	2.6541	0.0000	0
+Basic	pitzDaily	10	ok	242.0000	1	0.8071	1.0000	0.0825	1.0000	1
+Basic	BernardCells	1	ok		1	0.6519	0.9333	104528264.0000	0.0000	0
+Basic	BernardCells	2	ok		1	0.6458	0.9333	104611416.0000	0.0000	0
+Basic	BernardCells	3	ok		1	0.6495	0.9333	0.7173	0.0000	0
+Basic	BernardCells	4	ok		1	0.6198	0.9333	106104264.0000	0.0000	0
+Basic	BernardCells	5	ok		1	0.6692	0.9333	104451064.0000	0.0000	0
+Basic	BernardCells	6	ok		1	0.6287	0.9333	1.0279	0.0000	0
+Basic	BernardCells	7	ok		1	0.6428	0.9333	104455512.0000	0.0000	0
+Basic	BernardCells	8	ok		1	0.6669	0.9333	104640960.0000	0.0000	0
+Basic	BernardCells	9	ok		1	0.6288	0.9333	0.9171	0.0000	0
+Basic	BernardCells	10	ok		1	0.6652	0.9333	0.4375	0.0000	0
+Basic	shallowWaterWithSquareBump	1	ok	157.0000	0	0.3873	0.4667	9999.0000	0.0000	0
+Basic	shallowWaterWithSquareBump	2	ok	361.0000	1	0.4799	0.6444	0.2505	0.5000	0
+Basic	shallowWaterWithSquareBump	3	ok	290.0000	1	0.5212	0.6444	0.4507	0.0000	0
+Basic	shallowWaterWithSquareBump	4	ok	454.0000	1	0.6249	1.0000	1.0000	0.0000	0
+Basic	shallowWaterWithSquareBump	5	ok	286.0000	1	0.8111	1.0000	1.0000	0.0000	0
+Basic	shallowWaterWithSquareBump	6	ok	125.0000	0	0.4016	0.4667	9999.0000	0.0000	0
+Basic	shallowWaterWithSquareBump	7	ok	350.0000	1	0.4809	0.6444	0.7350	0.0000	0
+Basic	shallowWaterWithSquareBump	8	ok	310.0000	1	0.6294	0.8889	0.7659	0.0000	0
+Basic	shallowWaterWithSquareBump	9	ok	295.0000	1	0.6496	0.8889	0.7904	0.0000	0
+Basic	shallowWaterWithSquareBump	10	ok	172.0000	0	0.3869	0.4667	9999.0000	0.0000	0
+Basic	obliqueShock	1	ok	270.0000	1	0.8043	1.0000	0.0005	1.0000	1
+Basic	obliqueShock	2	ok	523.0000	1	0.7729	1.0000	0.0255	1.0000	1
+Basic	obliqueShock	3	ok	183.0000	1	0.7752	1.0000	0.1247	0.5000	0
+Basic	obliqueShock	4	ok	192.0000	1	0.8370	1.0000	0.1316	0.5000	0
+Basic	obliqueShock	5	ok	128.0000	1	0.7919	1.0000	0.0020	1.0000	1
+Basic	obliqueShock	6	ok	566.0000	1	0.8131	1.0000	0.0053	1.0000	1
+Basic	obliqueShock	7	ok	305.0000	1	0.8038	1.0000	0.0161	1.0000	1
+Basic	obliqueShock	8	ok	230.0000	1	0.8131	1.0000	0.0022	1.0000	1
+Basic	obliqueShock	9	ok	366.0000	1	0.7814	1.0000	0.0018	1.0000	1
+Basic	obliqueShock	10	ok	205.0000	1	0.8057	1.0000	0.0356	1.0000	1
+Basic	wedge	1	ok	123.0000	1	0.8729	1.0000	0.0034	1.0000	1
+Basic	wedge	2	ok	311.0000	1	0.8377	1.0000	0.0231	1.0000	1
+Basic	wedge	3	ok	191.0000	1	0.7869	1.0000	0.0122	1.0000	1
+Basic	wedge	4	ok	299.0000	1	0.8157	1.0000	2.1952	0.0000	0
+Basic	wedge	5	ok	204.0000	1	0.8507	1.0000	0.0198	1.0000	1
+Basic	wedge	6	ok	281.0000	1	0.8414	1.0000	0.0209	1.0000	1
+Basic	wedge	7	ok	162.0000	1	0.7985	1.0000	0.0222	1.0000	1
+Basic	wedge	8	ok	231.0000	1	0.8135	1.0000	0.0280	1.0000	1
+Basic	wedge	9	ok	314.0000	1	0.8203	1.0000	0.0335	1.0000	1
+Basic	wedge	10	ok	266.0000	1	0.7954	1.0000	0.0295	1.0000	1
+Basic	Cavity	1	ok		1	0.8518	1.0000	0.1024	0.5000	0
+Basic	Cavity	2	ok		1	0.8561	1.0000	0.0578	1.0000	1
+Basic	Cavity	3	ok		1	0.8533	1.0000	0.2365	0.5000	0
+Basic	Cavity	4	ok		1	0.8641	1.0000	0.0036	1.0000	1
+Basic	Cavity	5	ok		1	0.8158	1.0000	0.1247	0.5000	0
+Basic	Cavity	6	ok		1	0.8649	1.0000	0.2906	0.5000	0
+Basic	Cavity	7	ok		1	0.8151	1.0000	0.0057	1.0000	1
+Basic	Cavity	8	ok		1	0.8624	1.0000	4.5807	0.0000	0
+Basic	Cavity	9	ok		1	0.8523	1.0000	0.3119	0.0000	0
+Basic	Cavity	10	ok		1	0.8658	1.0000	0.0115	1.0000	1
+Basic	counterFlowFlame2D	1	failed	10800.0000	0	0.5902	0.8778	0.1396	0.5000	0
+Basic	counterFlowFlame2D	2	timeout	1800.0000	0	0.6140	0.8778	9999.0000	0.0000	0
+Basic	counterFlowFlame2D	3	timeout	4020.0000	0	0.5863	0.8778	9999.0000	0.0000	0
+Basic	counterFlowFlame2D	4	timeout	1800.0000	0	0.5814	0.8778	9999.0000	0.0000	0
+Basic	counterFlowFlame2D	5	timeout	1800.0000	0	0.6179	0.8778	9999.0000	0.0000	0
+Basic	counterFlowFlame2D	6	timeout	1800.0000	0	0.5851	0.8778	9999.0000	0.0000	0
+Basic	counterFlowFlame2D	7	timeout	1800.0000	0	0.5485	0.8778	9999.0000	0.0000	0
+Basic	counterFlowFlame2D	8	timeout	1800.0000	0	0.6294	0.8778	9999.0000	0.0000	0
+Basic	counterFlowFlame2D	9	timeout	1800.0000	0	0.6088	0.8778	9999.0000	0.0000	0
+Basic	counterFlowFlame2D	10	timeout	1800.0000	0	0.5937	0.8778	9999.0000	0.0000	0
+Basic	forwardStep	1	ok	320.0000	1	0.7097	1.0000	68822728.0000	0.0000	0
+Basic	forwardStep	2	ok	380.0000	1	0.7602	1.0000	478192704.0000	0.0000	0
+Basic	forwardStep	3	ok	347.0000	1	0.7632	1.0000	483032960.0000	0.0000	0
+Basic	forwardStep	4	ok	348.0000	1	0.7840	1.0000	511560256.0000	0.0000	0
+Basic	forwardStep	5	ok	277.0000	1	0.8083	1.0000	0.0651	1.0000	1
+Basic	forwardStep	6	ok	417.0000	1	0.7829	1.0000	384152928.0000	0.0000	0
+Basic	forwardStep	7	ok	250.0000	1	0.7802	1.0000	278044384.0000	0.0000	0
+Basic	forwardStep	8	ok	412.0000	1	0.7943	1.0000	258319200.0000	0.0000	0
+Basic	forwardStep	9	ok	1571.0000	1	0.7627	1.0000	0.5819	0.0000	0
+Basic	forwardStep	10	ok	366.0000	1	0.7742	1.0000	182656592.0000	0.0000	0
+Basic	Cylinder	1	ok		1	0.7601	1.0000	1.2959	0.0000	0
+Basic	Cylinder	2	ok		1	0.7395	1.0000	0.4221	0.0000	0
+Basic	Cylinder	3	ok		1	0.7019	1.0000	0.6565	0.0000	0
+Basic	Cylinder	4	ok		1	0.7299	1.0000	0.7531	0.0000	0
+Basic	Cylinder	5	ok		1	0.7364	1.0000		0.0000	0
+Basic	Cylinder	6	ok		1	0.7261	1.0000	0.7513	0.0000	0
+Basic	Cylinder	7	ok		1	0.7557	1.0000	0.5676	0.0000	0
+Basic	Cylinder	8	ok		1	0.7324	1.0000	0.6247	0.0000	0
+Basic	Cylinder	9	ok		1	0.7520	1.0000	0.7127	0.0000	0
+Basic	Cylinder	10	ok		1	0.7512	1.0000	0.7085	0.0000	0
+Basic	damBreakWithObstacle	1	failed	300.0000	1	0.5953	0.9583	7.8952	0.0000	0
+Basic	damBreakWithObstacle	2	ok	250.0000	0	0.4778	0.7361	304.1017	0.0000	0
+Basic	damBreakWithObstacle	3	ok	329.0000	1	0.6108	1.0000	26.4855	0.0000	0
+Basic	damBreakWithObstacle	4	ok	304.0000	1	0.6323	1.0000	15.5515	0.0000	0
+Basic	damBreakWithObstacle	5	ok	335.0000	1	0.6291	1.0000	11.4230	0.0000	0
+Basic	damBreakWithObstacle	6	ok	222.0000	1	0.4359	0.6885	26.1798	0.0000	0
+Basic	damBreakWithObstacle	7	ok	232.0000	1	0.4237	0.6409	102.9499	0.0000	0
+Basic	damBreakWithObstacle	8	ok	381.0000	1	0.5809	1.0000	7.4657	0.0000	0
+Basic	damBreakWithObstacle	9	ok	316.0000	1	0.6362	1.0000	27.6369	0.0000	0
+Basic	damBreakWithObstacle	10	failed	332.0000	1	0.5921	0.9583	415.8867	0.0000	0
+Basic	squareBend	1	ok	1662.0000	0	0.7502	1.0000	0.3567	0.0000	0
+Basic	squareBend	2	failed	897.0000	0	0.7585	1.0000	4.4438	0.0000	0
+Basic	squareBend	3	failed	635.0000	0	0.7732	1.0000	0.3487	0.0000	0
+Basic	squareBend	4	ok	1514.0000	0	0.7398	1.0000	0.3490	0.0000	0
+Basic	squareBend	5	timeout	1800.0000	0	0.7227	1.0000	9999.0000	0.0000	0
+Basic	squareBend	6	failed	1074.0000	0	0.7426	1.0000	0.3521	0.0000	0
+Basic	squareBend	7	timeout	1800.0000	0	0.7557	1.0000	9999.0000	0.0000	0
+Basic	squareBend	8	timeout	1800.0000	0	0.7612	1.0000	9999.0000	0.0000	0
+Basic	squareBend	9	timeout	900.0000	0	0.7648	1.0000	9999.0000	0.0000	0
+Basic	squareBend	10	ok	524.0000	1	0.6938	1.0000	55.6221	0.0000	0
+Advanced	Cylinder_LES	1	ok	269.0000	1	0.5832	0.9333	0.6739	0.0000	0
+Advanced	Cavity_geometry_1	1	ok	96.0000	1	0.8959	1.0000	0.5622	0.0000	0
+Advanced	obliqueShock_LES	1	ok	307.0000	1	0.7317	0.9444	0.0004	1.0000	1
+Advanced	Cylinder_SA	1	ok	171.0000	1	0.7360	1.0000	0.7226	0.0000	0
+Advanced	Diamond_Obstacle_SA	1	timeout	900.0000	0	0.3383	0.5556	9999.0000	0.0000	0
+Advanced	obliqueShock_KE	1	ok	572.0000	1	0.7952	1.0000	0.0003	1.0000	1
+Advanced	wedge_SA	1	timeout	900.0000	0	0.8032	1.0000	9999.0000	0.0000	0
+Advanced	Double_Square_SA	1	ok	214.0000	1	0.3667	0.5556	0.5394	0.0000	0
+Advanced	counterFlowFlame2D_KE	1	timeout	900.0000	0	0.6496	0.9556	9999.0000	0.0000	0
+Advanced	nozzleFlow2D_SA	1	ok	571.0000	1	0.5979	0.8889	0.9859	0.0000	0
+Advanced	Cavity_SA	1	ok	117.0000	1	0.8956	1.0000	0.2595	0.5000	0
+Advanced	counterFlowFlame2D_SA	1	timeout	900.0000	0	0.6595	0.9333	9999.0000	0.0000	0
+Advanced	Cavity_LES	1	ok	125.0000	1	0.7522	0.9333	0.8068	0.0000	0
+Advanced	Diamond_Obstacle_KOMEGASST	1	ok	244.0000	1	0.3686	0.6111	0.5413	0.0000	0
+Advanced	Rectangular_Obstacle_SA	1	ok	196.0000	1	0.3710	0.5556	0.5263	0.0000	0
+Advanced	Rectangular_Obstacle_KOMEGASST	1	ok	213.0000	1	0.3719	0.6111	0.5180	0.0000	0
