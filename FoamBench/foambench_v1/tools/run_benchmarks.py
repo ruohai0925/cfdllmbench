@@ -46,10 +46,12 @@ DEFAULT_MODEL = "gpt-5.6-sol"
 # max_time_limit=3600 s per solver run, neither overridable from the environment, so a
 # case that keeps producing a non-terminating solver setup can occupy the machine for a
 # day. Past the cap the whole process tree is killed and the case is recorded as failed.
-# 30 minutes: the slowest ground-truth case solves in 399 s, so a correct submission
-# never needs more than ~7 minutes of solver time, and the cap still leaves the slowest
-# cases three or four full generate-run-review rounds.
-DEFAULT_CASE_TIMEOUT = 30 * 60
+# 15 minutes. The slowest ground-truth case solves in 399 s, so a correct submission
+# never needs more than ~7 minutes of solver time. Of the 49 timed successful cases in
+# the first 96, the median took 310 s and p90 463 s; three converged after 25-28 min and
+# would be lost under this cap. Every case that failed did so within 18 min, and every
+# timeout burned the full 30 min of quota, which is what the cap is here to limit.
+DEFAULT_CASE_TIMEOUT = 15 * 60
 RESULTS = os.path.join(PKG, "results")
 RUN_SUMMARY = os.path.join(RESULTS, "foam_agent_run_summary.tsv")
 

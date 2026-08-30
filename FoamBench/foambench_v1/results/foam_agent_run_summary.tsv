@@ -87,3 +87,11 @@ Basic/shallowWaterWithSquareBump/6	ok	125	2026-08-29T14:07:06
 Basic/shallowWaterWithSquareBump/7	ok	350	2026-08-29T14:12:57
 Basic/shallowWaterWithSquareBump/8	ok	310	2026-08-29T14:18:08
 Basic/shallowWaterWithSquareBump/9	ok	295	2026-08-29T14:23:03
+Basic/squareBend/1	ok	1662	2026-08-29T18:40:56
+Basic/squareBend/2	failed	897	2026-08-29T18:55:54
+Basic/squareBend/3	failed	635	2026-08-29T19:06:30
+Basic/squareBend/4	ok	1514	2026-08-29T19:31:44
+Basic/squareBend/5	timeout	1800	2026-08-29T23:44:30
+Basic/squareBend/6	failed	1074	2026-08-30T00:02:24
+Basic/squareBend/7	timeout	1800	2026-08-30T00:32:24
+Basic/squareBend/8	timeout	1800	2026-08-30T01:02:24
