@@ -18,6 +18,9 @@ docs/
 # table and the final table are tracked; the intermediate per-metric CSVs are not.
 results/*.csv
 !results/final_benchmark_scores.csv
+# One directory per backend, results/<tag>/, holding that run's tables; same rule there.
+results/*/*.csv
+!results/*/final_benchmark_scores.csv
 
 __pycache__/
 *.pyc

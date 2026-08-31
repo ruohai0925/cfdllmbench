@@ -2,6 +2,21 @@
 
     python tools/run_benchmarks.py --mode all
     python tools/run_benchmarks.py --only Basic/Cavity/1        # verify one case first
+    python tools/run_benchmarks.py --backend claude --mode all  # Claude instead of GPT
+
+Two backends, both subscription-based, selected with --backend:
+
+  codex   (default) Foam-Agent's own `openai-codex` provider, which signs in with the
+          Codex CLI's cached OAuth and posts to the ChatGPT backend. Model gpt-5.6-sol.
+  claude  Foam-Agent's stock `openai` provider pointed at tools/claude_bridge.py, a local
+          OpenAI-compatible endpoint that answers each call with one `claude -p`. Model
+          claude-opus-5 at high effort. Start the bridge first:
+              python tools/claude_bridge.py &
+          Nothing in Foam-Agent changes between the two; only the environment does.
+
+A case directory holds one submission at a time (the scoring scripts take "the first
+sub-directory that is not GT_Files"), so park a finished run with tools/archive_run.py
+before starting another backend.
 
 Foam-Agent's interface is a plain text prompt file and an output directory, which is
 exactly what tools/unpack.py already lays down:
@@ -42,6 +57,15 @@ SUBMISSION = "foam_agent_run"
 # gpt-5.3-codex, is refused by the subscription backend ("not supported when using
 # Codex with a ChatGPT account"); gpt-5.6-sol is accepted.
 DEFAULT_MODEL = "gpt-5.6-sol"
+# Claude backend: Foam-Agent's `anthropic` provider builds a ChatAnthropic and wants an
+# ANTHROPIC_API_KEY, which is metered API access, not the subscription. The subscription
+# is reached instead through the stock `openai` provider, whose ChatOpenAI honours
+# OPENAI_BASE_URL: point that at tools/claude_bridge.py and every call becomes a
+# `claude -p`. The api key that ChatOpenAI insists on is a placeholder for the local
+# bridge; it is not, and must never be, an OpenAI key.
+DEFAULT_CLAUDE_MODEL = "claude-opus-5"
+BRIDGE_URL = os.environ.get("CLAUDE_BRIDGE_URL", "http://127.0.0.1:8787/v1")
+BRIDGE_PLACEHOLDER_KEY = "local-claude-bridge-not-an-openai-key"
 # Wall-clock cap per case. Foam-Agent's own limits are max_loop=25 review iterations and
 # max_time_limit=3600 s per solver run, neither overridable from the environment, so a
 # case that keeps producing a non-terminating solver setup can occupy the machine for a
@@ -65,7 +89,7 @@ def agent_python():
     return env_python if os.path.isfile(env_python) else sys.executable
 
 
-def agent_env():
+def agent_env(backend="codex"):
     """Environment for Foam-Agent's own scripts. foambench_main.py re-invokes a bare
     `python src/main.py`, so the interpreter's directory has to lead PATH; and the
     OPENAI_API_KEY this machine keeps for other purposes must not leak in, because the
@@ -73,15 +97,21 @@ def agent_env():
     env = dict(os.environ)
     env["PATH"] = os.path.dirname(agent_python()) + os.pathsep + env.get("PATH", "")
     env["WM_PROJECT_DIR"] = OPENFOAM_DIR
-    env.setdefault("FOAMAGENT_MODEL_VERSION", DEFAULT_MODEL)
     env.pop("OPENAI_API_KEY", None)
+    if backend == "claude":
+        env["FOAMAGENT_MODEL_PROVIDER"] = "openai"
+        env["OPENAI_BASE_URL"] = BRIDGE_URL
+        env["OPENAI_API_KEY"] = BRIDGE_PLACEHOLDER_KEY
+        env.setdefault("FOAMAGENT_MODEL_VERSION", DEFAULT_CLAUDE_MODEL)
+    else:
+        env.setdefault("FOAMAGENT_MODEL_VERSION", DEFAULT_MODEL)
     return env
 
 
-def run(cmd, cwd):
+def run(cmd, cwd, backend="codex"):
     print("  $ " + " ".join(cmd), flush=True)
     try:
-        subprocess.run(cmd, cwd=cwd, check=True, env=agent_env())
+        subprocess.run(cmd, cwd=cwd, check=True, env=agent_env(backend))
         return True
     except subprocess.CalledProcessError as e:
         print(f"  failed: {e}", flush=True)
@@ -124,6 +154,24 @@ def init_database(force=False):
     return run(cmd, AGENT_ROOT)
 
 
+def check_bridge():
+    """The Claude backend is only reachable while tools/claude_bridge.py is up. Without
+    this check ChatOpenAI would fall back to api.openai.com and fail on every case with a
+    401 from the placeholder key, 126 times over."""
+    import json
+    import urllib.request
+    root = BRIDGE_URL.rsplit("/v1", 1)[0] or BRIDGE_URL
+    try:
+        with urllib.request.urlopen(root, timeout=10) as r:
+            info = json.loads(r.read().decode())
+    except Exception as e:
+        raise SystemExit(
+            f"no claude bridge at {root} ({e})\n"
+            f"start it first:  python tools/claude_bridge.py &")
+    print(f"bridge     : {root} -> {info.get('model')} effort={info.get('effort')}")
+    return info
+
+
 def collect_cases(mode):
     """[(label, case_dir), ...] in the order they will be run."""
     cases = []
@@ -164,7 +212,7 @@ def kill_processes_under(directory):
     return killed
 
 
-def run_case(case_dir, timeout):
+def run_case(case_dir, timeout, backend="codex"):
     """Run one case; returns (status, seconds). status is 'ok', 'failed' or 'timeout'.
     The framework spawns python -> Allrun -> solver, so it is started in its own process
     group and the whole group is killed on timeout."""
@@ -175,7 +223,7 @@ def run_case(case_dir, timeout):
            "--prompt_path", os.path.join(case_dir, "usr_requirement.txt")]
     print("  $ " + " ".join(cmd), flush=True)
     t0 = time.time()
-    proc = subprocess.Popen(cmd, cwd=AGENT_ROOT, env=agent_env(), start_new_session=True)
+    proc = subprocess.Popen(cmd, cwd=AGENT_ROOT, env=agent_env(backend), start_new_session=True)
     try:
         rc = proc.wait(timeout=timeout)
         status = "ok" if rc == 0 else "failed"
@@ -220,7 +268,10 @@ def usage_limit_hit(case_dir):
 # any review round is retried a bounded number of times rather than scored.
 TRANSIENT_MARKERS = ("Response ended prematurely", "IncompleteRead", "ChunkedEncodingError",
                      "RemoteDisconnected", "Connection reset", "HTTP 502", "HTTP 503", "HTTP 504",
-                     "Connection aborted")
+                     "Connection aborted",
+                     # claude backend: the CLI stalled or died on its own, which says
+                     # nothing about the agent's answer.
+                     "claude call timed out after", "claude -p returned unparseable JSON")
 TRANSIENT_RETRIES = 2
 
 
@@ -256,6 +307,10 @@ def record(label, status, seconds):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--backend", choices=["codex", "claude"], default="codex",
+                    help="which subscription drives Foam-Agent: 'codex' (gpt-5.6-sol "
+                         "through the ChatGPT backend, the default) or 'claude' "
+                         "(claude-opus-5 through tools/claude_bridge.py)")
     ap.add_argument("--mode", choices=["basic", "advanced", "all"], default="all",
                     help="which split to run")
     ap.add_argument("--only", action="append",
@@ -267,6 +322,9 @@ def main():
                     help="do not touch the RAG database at all")
     ap.add_argument("--skip-done", action="store_true",
                     help="skip cases that already have a submission directory")
+    ap.add_argument("--append-summary", action="store_true",
+                    help=f"append to an existing {os.path.basename(RUN_SUMMARY)} instead "
+                         f"of refusing to mix two runs in one file")
     ap.add_argument("--case-timeout", type=int, default=DEFAULT_CASE_TIMEOUT, metavar="SECONDS",
                     help=f"wall-clock cap per case (default {DEFAULT_CASE_TIMEOUT}); "
                          f"on expiry the case is killed and recorded as failed")
@@ -278,6 +336,16 @@ def main():
             f"Run tools/fetch_upstream.sh, or set $FOAMAGENT_ROOT to its directory.")
     if not os.path.isdir(OPENFOAM_DIR):
         raise SystemExit(f"OpenFOAM not found at {OPENFOAM_DIR}; set $WM_PROJECT_DIR")
+
+    if (os.path.exists(RUN_SUMMARY) and not args.skip_done and not args.append_summary):
+        raise SystemExit(
+            f"{RUN_SUMMARY} already holds a run.\n"
+            f"Park it (and the submissions it describes) before starting another backend:\n"
+            f"    python tools/archive_run.py --archive <tag>\n"
+            f"or pass --skip-done to resume this one, or --append-summary to add to it.")
+
+    if args.backend == "claude":
+        check_bridge()
 
     cases = collect_cases(args.mode)
     if args.only:
@@ -295,7 +363,8 @@ def main():
     print(f"Foam-Agent : {AGENT_ROOT}")
     print(f"python     : {agent_python()}")
     print(f"OpenFOAM   : {OPENFOAM_DIR}")
-    e = agent_env()
+    e = agent_env(args.backend)
+    print(f"backend    : {args.backend}")
     print(f"model      : {e.get('FOAMAGENT_MODEL_PROVIDER', 'openai-codex (Foam-Agent default)')} / "
           f"{e['FOAMAGENT_MODEL_VERSION']}")
     print(f"cases      : {len(cases)} ({args.mode})")
@@ -309,7 +378,7 @@ def main():
         print(f"\n[{i}/{len(cases)}] {label}", flush=True)
         retries = 0
         while True:
-            status, seconds = run_case(case_dir, args.case_timeout)
+            status, seconds = run_case(case_dir, args.case_timeout, args.backend)
             if status != "failed":
                 break
             resets_at = usage_limit_hit(case_dir)
