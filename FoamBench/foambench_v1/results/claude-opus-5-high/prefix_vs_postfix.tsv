@@ -1,0 +1,14 @@
+case	status_prefix	status_postfix	Execution_prefix	Execution_postfix	NMSE_prefix	NMSE_postfix	NMSE_Score_prefix	NMSE_Score_postfix	Success_prefix	Success_postfix
+Basic/damBreakWithObstacle/1	failed	ok	1	1	14.5917	3.0781	0.0000	0.0000	0	0
+Basic/damBreakWithObstacle/5	failed	ok	1	1	17.6697	15.6965	0.0000	0.0000	0	0
+Basic/damBreakWithObstacle/7	failed	ok	1	1	40.4239	9.1946	0.0000	0.0000	0	0
+Basic/damBreakWithObstacle/8	failed	ok	1	1	23.6604	27.8584	0.0000	0.0000	0	0
+Basic/damBreakWithObstacle/9	failed	ok	1	1	43.6170	87.2347	0.0000	0.0000	0	0
+Basic/squareBend/1	failed	timeout	0	0	13113988096.0000	9999.0000	0.0000	0.0000	0	0
+Basic/squareBend/2	failed	ok	0	0	0.1912	0.1170	0.5000	0.5000	0	0
+Basic/squareBend/3	failed	ok	0	0	28.6944	0.2066	0.0000	0.5000	0	0
+Basic/squareBend/5	failed	timeout	0	0	11752251.0000	9999.0000	0.0000	0.0000	0	0
+Basic/squareBend/6	failed	timeout	0	0	0.5491	9999.0000	0.0000	0.0000	0	0
+Basic/squareBend/7	failed	timeout	0	0	101719296.0000	9999.0000	0.0000	0.0000	0	0
+Basic/squareBend/8	failed	timeout	0	0	3703677611431540906000384.0000	9999.0000	0.0000	0.0000	0	0
+Basic/squareBend/10	failed	timeout	0	0	0.2222	9999.0000	0.5000	0.0000	0	0

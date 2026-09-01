@@ -14,8 +14,9 @@ the right numbers, not whether it produced a plausible-looking case directory.
 ## 1. What was held constant, and what was varied
 
 A model comparison is only worth reporting if exactly one thing changed. Foam-Agent's
-source was not modified between the two runs; the difference is entirely in environment
-variables.
+behaviour was not modified between the two runs; the difference is entirely in environment
+variables. (One exception, introduced after both runs were complete and quantified as
+zero-effect: 13 cases were rerun on a patched framework — see §5.2 and caveat 3.)
 
 **Held constant**
 
@@ -57,7 +58,7 @@ Success requires both a clean run and NMSE below 0.1.
 | Model | Execution | CodeBLEU | Tree | NMSE | **Success** |
 |---|---|---|---|---|---|
 | gpt-5.6-sol (medium) | 0.791 | 0.717 | 0.947 | 0.255 | **0.218** |
-| claude-opus-5 (high) | 0.782 | 0.751 | 0.938 | **0.409** | **0.391** |
+| claude-opus-5 (high) | 0.782 | 0.750 | 0.938 | **0.409** | **0.391** |
 | change | −0.009 | +0.034 | −0.009 | **+0.154** | **+0.173** |
 
 ### Advanced — 16 cases
@@ -117,15 +118,19 @@ separately here on purpose.
 
 | Outcome | Count | Meaning |
 |---|---|---|
-| ok | 95 | agent completed its workflow |
-| timeout | 18 | hit the 15-minute per-case cap |
-| failed | 13 | one framework defect, see §5.2 |
+| ok | 102 | agent completed its workflow |
+| timeout | 24 | hit the 15-minute per-case cap |
+| failed | 0 | — |
 
-The 18 timeouts are concentrated: 12 are counterFlowFlame2D (the entire family,
-including both Advanced variants), 4 are pitzDaily, 2 are squareBend.
+As first run, this was 95 ok / 18 timeout / 13 failed. All 13 failures came from a single
+Foam-Agent defect (§5.2); after fixing it and rerunning those cases, seven complete and six
+time out. **The split-level scores are unchanged by the fix** — see §5.2.
 
-**None of the 13 failures is a wrong answer from the model.** All 13 trace to a single
-Foam-Agent defect described in §5.2, in two forms:
+The 24 timeouts are concentrated in three families: 12 counterFlowFlame2D (the entire
+family, including both Advanced variants), 8 squareBend, 4 pitzDaily.
+
+**Not one failure was a wrong answer from the model.** As first run, the 13 failures broke
+down as:
 
 | Failure mode | Cases | Detail |
 |---|---|---|
@@ -193,8 +198,40 @@ sends the request and receives a context-length error. GPT-5.6 completed the sam
 squareBend and five damBreak cases only because its review rounds happened to occur
 *before* the solver had written any output. That is timing, not immunity.
 
-**Consequence for scoring:** these belong in the run-status table and out of any claim
-about model capability. Both affected families score zero for both models regardless.
+### The fix, and what it changed
+
+`scan_case_directory()` now skips directories the solver wrote — any float-named directory
+(a written time step) plus `processor*`, `postProcessing`, `VTK`, `dynamicCode` — while
+keeping `0` and `0.orig`, which are initial conditions and part of the case. The same case
+then scans to 0.079 MB with `0/`, `constant/` and `system/` intact.
+([upstream PR](https://github.com/csml-rpi/Foam-Agent/pull/42))
+
+This removes no diagnostic information. Error logs reach the reviewer through
+`check_foam_errors()`, which reads `log*` files at the **case root** — a separate path that
+`scan_case_directory()` never covered, since it only ever collected subdirectories. A 116 KB
+`log.interFoam` carries 201 Courant-number readings plus continuity errors and bounding
+warnings; the time directories only added per-cell field values.
+
+Nor is the fix a workaround for the CLI. Measured per case, 11 of the 13 prompts exceed
+1M tokens (up to 14M for `squareBend/10`) and would be rejected by any backend. The
+arithmetic is decisive: 10 MB of text is roughly 2.5M tokens, so the CLI's stdin cap sits
+2.5× beyond a 1M context window and can never reject a request a model would have accepted.
+
+Rerunning the 13 on the patched framework: **failures go to zero** — five damBreak cases and
+two squareBend cases now complete (188–346 s), six squareBend cases time out instead.
+
+**And the scores do not move.** Basic Execution, Tree, NMSE and Success are bit-identical
+before and after; Basic CodeBLEU shifts from 0.7508 to 0.7505; Advanced is untouched. The
+damBreak cases already scored Execution 1 (the solver had finished before the crash) and
+their NMSE stays far above threshold, 14.6–43.6 before against 3.1–87.2 after. squareBend
+scores Execution 0 either way. Per-case detail is in
+`results/claude-opus-5-high/prefix_vs_postfix.tsv`.
+
+**Consequence for scoring:** the defect cost 13 runs and zero benchmark points, because it
+only struck in two families that score zero regardless. The comparison in §2 and §3 is not
+contaminated by it. A useful side effect: squareBend's zero is now visibly *not* the
+framework's doing — the family fails on its own merits, 6 timeouts and Execution 0, matching
+GPT-5.6's 0.10 Execution on the same family.
 
 ### 5.3 Reasoning effort is auditable on only one of the two paths
 
@@ -234,8 +271,13 @@ It is listed because a reviewer will ask.
    is 0 regardless. Report run status and Execution as separate columns, never as one
    number.
 
-3. **13 of run 2's failures are harness artefacts, not model errors** (§5.2). Their
-   families score zero for both models in any case.
+3. **13 of run 2's cases ran on a patched framework.** They failed on the original one
+   because of the defect in §5.2, were rerun after it was fixed, and are reported here in
+   their post-fix state. The other 113 cases of run 2, and all 126 of run 1, ran on the
+   unpatched framework. This is the single break in "only the model changed", and its
+   measured effect on the scores is zero: every split-level metric is bit-identical before
+   and after except Basic CodeBLEU, which moves by 0.0003. The pre-fix submissions are
+   retained.
 
 4. **Effort differs between runs and cannot be equalised downward.** Medium was imposed
    on run 1 by its transport, not chosen. Until an ablation is run, the comparison is
@@ -311,3 +353,5 @@ retries were needed across all 3,042 calls.
 | Quota stalls | 6 | 0 |
 | Structured-output retries | — | 0 |
 | Tokens | — | 20.0M in / 2.21M out / 874k thinking |
+
+Plus a 13-case rerun after the framework fix (§5.2), roughly 2 h.
