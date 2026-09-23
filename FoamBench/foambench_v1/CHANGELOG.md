@@ -1,18 +1,18 @@
 # FoamBench dataset changelog
 
 `FoamBench_basic_v1.json` and `FoamBench_advanced_v1.json` are produced from the unmodified Kaggle
-originals by `python Dataset/patch_v1.py`. The originals (`FoamBench_basic.json`, md5
-`5806109a8d5a45bd8f6f44bb87b66ceb`, 110 cases; `FoamBench_advanced.json`, md5
+originals by `python tools/patch_dataset.py`. The originals (`upstream/FoamBench_basic.json`, md5
+`5806109a8d5a45bd8f6f44bb87b66ceb`, 110 cases; `upstream/FoamBench_advanced.json`, md5
 `4418b079e408d24c89f8c84b60b49581`, 16 cases) are kept unchanged so published numbers remain reproducible.
 
 **104 of 126 cases are modified.** Every change falls into one of five defect classes described below.
-`patch_v1.py` asserts the original text before every edit, so the patch fails loudly if the source changes.
+`patch_dataset.py` asserts the original text before every edit, so the patch fails loudly if the source changes.
 
 Unpack and run the corrected dataset with:
 
 ```bash
-python Dataset/unpack_v1.py      # Dataset/{Basic,Advanced}/<case>/GT_Files
-./Dataset/run_gt.sh 12           # runs every case to completion; writes Dataset/gt_run_summary.tsv
+python tools/unpack.py           # Dataset/{Basic,Advanced}/<case>/GT_Files
+tools/run_gt.sh 12               # runs every case to completion; writes results/gt_run_summary.tsv
 ```
 
 All 126 corrected cases run to `End` under OpenFOAM 10 with no `FOAM FATAL` and no time limit.
@@ -176,5 +176,5 @@ block sits under `simulationType laminar` — and it caught a bug in the patch i
 **A verification pitfall worth recording.** OpenFOAM's `runApplication` refuses to re-run when `log.<application>`
 already exists — it prints "already run … remove log file to re-run" and **returns success**. A re-run over a
 directory that still holds an earlier run is therefore a silent no-op that looks like a pass. Several
-intermediate results in this work were invalidated by exactly this and had to be redone; `Dataset/run_gt.sh`
+intermediate results in this work were invalidated by exactly this and had to be redone; `tools/run_gt.sh`
 now cleans each case before running. The same trap applies to scoring framework submissions.
