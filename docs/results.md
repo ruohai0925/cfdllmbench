@@ -4,7 +4,23 @@ This page presents comprehensive evaluation results across all CFDLLMBench compo
 
 ## Overall Performance
 
-![All Scores](../figs/all_bars.png)
+### CFDQuery
+
+![CFDQuery results](../figs/results_cfdquery.png)
+
+### CFDCodeBench
+
+![CFDCodeBench results](../figs/results_cfdcodebench.png)
+
+### FoamBench
+
+**Latest Foam-Agent version** (models evaluated in V2 and the Codex CLI / Claude Code coding agents):
+
+![FoamBench results, latest Foam-Agent version](../figs/results_foambench.png)
+
+**Previous Foam-Agent version** (models from the original paper and the models evaluated in V2, with the coding agents):
+
+![FoamBench results, previous Foam-Agent version](../figs/results_foambench_previous_version.png)
 
 ## Key Findings
 

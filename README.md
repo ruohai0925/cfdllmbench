@@ -1,10 +1,15 @@
-# CFDLLMBench
+# CFDLLMBench V2
+
+**🌐 Website: [nithinsomu.github.io/cfdllmbench_v2](https://nithinsomu.github.io/cfdllmbench_v2/)**
 
 **CFDLLMBench** is a comprehensive benchmark suite designed to assess Large Language Models (LLMs) on key competencies relevant to computational fluid dynamics (CFD). It evaluates LLMs across three interconnected tasks:
 
 - ✅ **CFDQuery**: Conceptual understanding through multiple-choice CFD questions.
 - ✅ **CFDCodeBench**: Instruction-following ability to generate CFD code.
 - ✅ **FoamBench**: End-to-end automation of OpenFOAM simulations from natural language.
+
+> **What's new in V2:** we updated the prompts for some cases, evaluated newer LLMs, and evaluated the latest version of Foam-Agent.
+> The latest (V2) datasets are included in this repository (see [Datasets](#-datasets)).
 
 ---
 
@@ -41,6 +46,18 @@ While LLMs excel in general NLP, their ability to reason about scientific system
 
 ---
 
+## 📂 Datasets
+
+The latest (V2) datasets are in this repository:
+
+- **CFDQuery**: [`CFDQuery/CFDQuery.json`](CFDQuery/CFDQuery.json)
+- **CFDCodeBench**: [`CFDCodeBench/PDE_Benchmark/prompt/PDE_TASK_QUESTION_ONLY.json`](CFDCodeBench/PDE_Benchmark/prompt/PDE_TASK_QUESTION_ONLY.json) (task definitions) and [`CFDCodeBench/PDE_Benchmark/prompt/prompts.json`](CFDCodeBench/PDE_Benchmark/prompt/prompts.json) (prompts), with the reference solvers in [`CFDCodeBench/PDE_Benchmark/solution/`](CFDCodeBench/PDE_Benchmark/solution) and the reference answers in [`CFDCodeBench/PDE_Benchmark/results/solution/`](CFDCodeBench/PDE_Benchmark/results/solution)
+- **FoamBench**: [`FoamBench/Dataset/FoamBench_basic.json`](FoamBench/Dataset/FoamBench_basic.json) and [`FoamBench/Dataset/FoamBench_advanced.json`](FoamBench/Dataset/FoamBench_advanced.json)
+
+The datasets used in the original paper are on Kaggle: [CFDQuery](https://www.kaggle.com/datasets/nithinsekhar/cfdquery/data), [CFDCodeBench](https://www.kaggle.com/datasets/nithinsekhar/cfdcodebench/data), [FoamBench](https://www.kaggle.com/datasets/nithinsekhar/foambench/data).
+
+---
+
 ## 🖼️ Benchmark Overview
 
 ![Benchmark Overview](figs/main_figure_v6.png)
@@ -49,7 +66,29 @@ While LLMs excel in general NLP, their ability to reason about scientific system
 
 ## 📈 Main Results
 
-![All Scores](figs/all_bars.png)
+### CFDQuery
+
+![CFDQuery results](figs/results_cfdquery.png)
+
+### CFDCodeBench
+
+![CFDCodeBench results](figs/results_cfdcodebench.png)
+
+### FoamBench
+
+**Latest Foam-Agent version** (models evaluated in V2 and the Codex CLI / Claude Code coding agents):
+
+![FoamBench results, latest Foam-Agent version](figs/results_foambench.png)
+
+**Previous Foam-Agent version** (models from the original paper and the models evaluated in V2, with the coding agents):
+
+![FoamBench results, previous Foam-Agent version](figs/results_foambench_previous_version.png)
+
+---
+
+## 🤝 Contributing
+
+If you wish to contribute to CFDLLMBench, please raise a [pull request](https://github.com/NLR-Theseus/cfdllmbench/pulls) with your prompts and reference files, and we will review it.
 
 ---
 
@@ -58,7 +97,7 @@ While LLMs excel in general NLP, their ability to reason about scientific system
 This benchmark is open-source and released under license: BSD-3-Clause.
 
 ## Citation
-If you use CFD-LLMBench in your research, please cite our paper:
+If you use CFDLLMBench in your research, please cite our paper:
 ```bibtex
 
 @article{somasekharan2025cfdllmbench,
